@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!-- manifest＝つうしんが なくても あそべるように、端末へ しまう ファイルの一覧（tools/build_app.py が作る） -->
+<html lang="ja" manifest="offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="くるくる">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+<title>くるくる ずけい</title>
+<!-- format-ok 年長の子が触るアプリ画面（デザインが主目的の成果物＝表示整形の規程は適用外。文字は全てひらがな） -->
+<style>
+  /* いろ＝赤と緑を「意味の区別」に使わない。せいかい＝青＋✓／ちがう＝橙＋！
+     暗い画面＝この端末（iOS 10）には設定が無いが、新しい端末で開いたときのために 紙と文字だけ切り替える。
+     カードの中身（かたち・いきもの）の色は 明るい画面と同じ＝見分けの目じるしのため変えない */
+  :root{
+    color-scheme: light dark;
+    --ground:#f6f4ee; --card:#ffffff; --ink:#1b1b1b; --ink-soft:#55606b; --line:#d6d8dc;
+    --ao:#0072B2; --daidai:#E69F00; --murasaki:#CC79A7; --mizu:#56B4E9; --ki:#F0E442; --ryokuao:#009E73;
+    --ao-bg:#eaf3fa; --daidai-bg:#fdf3e2; --daidai-ink:#8a5a00; --nashi:#9aa5ae; --on-accent:#ffffff;
+    --on-mizu:#102030; --on-murasaki:#2a1020; --locked:#f1f1ef;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#14191f; --card:#1c232b; --ink:#e8edf2; --ink-soft:#a7b4c0; --line:#38434e;
+      --ao-bg:#12354a; --daidai-bg:#3d3010; --daidai-ink:#f2b544; --nashi:#5b6672; --locked:#232830;
+      --ao:#0072B2; --daidai:#E69F00; --murasaki:#CC79A7; --mizu:#56B4E9; --ki:#F0E442; --ryokuao:#009E73;
+      --on-accent:#ffffff; --on-mizu:#102030; --on-murasaki:#2a1020;
+    }
+  }
+  *{box-sizing:border-box;}
+  html{font-size:24px;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    font-size:0.92rem; line-height:1.6;
+    -webkit-text-size-adjust:100%; -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:rgba(0,0,0,0);
+  }
+  .screen{padding:10px 14px 30px; max-width:900px; margin:0 auto;}
+  h1{font-size:1.25rem; margin:4px 0 2px;}
+  h2{font-size:1rem; margin:8px 0;}
+  p{margin:6px 0;}
+  button{
+    font-family:inherit; font-size:0.92rem; -webkit-appearance:none; appearance:none;
+    border:0; border-radius:12px; padding:12px 20px; color:var(--on-accent); background:var(--ao);
+    cursor:pointer; min-height:58px;
+  }
+  button.sub{background:var(--nashi);}
+  button.small{font-size:0.67rem; min-height:0; padding:8px 14px;}
+  .head{overflow:hidden; padding-bottom:4px;}
+  .head h1{float:left;}
+  .head .right{float:right; margin-top:6px;}
+  .note{color:var(--ink-soft); font-size:0.67rem;}
+
+  /* はじめの がめん */
+  .egg-row{overflow:hidden; background:var(--card); border:2px solid var(--line); border-radius:16px; padding:12px; margin:10px 0;}
+  .egg-row canvas{float:left; width:120px; height:120px; margin-right:14px;}
+  .egg-row .egg-text{overflow:hidden;}
+  .egg-row .egg-text p{margin:2px 0;}
+  .lv-list button{display:block; width:100%; margin:12px 0 0; padding:18px; font-size:1.08rem; text-align:left; min-height:0;}
+  .lv-list button span{display:block; font-size:0.63rem; opacity:0.92;}
+  #lv-1{background:var(--mizu); color:var(--on-mizu);}
+  #lv-2{background:var(--ao);}
+  #lv-3{background:var(--murasaki); color:var(--on-murasaki);}
+  .home-foot{overflow:hidden; margin-top:14px;}
+  .home-foot button{float:left; margin-right:10px;}
+  .home-foot #grown-btn{float:right;}
+
+  /* あそぶ */
+  .qbar{overflow:hidden; font-size:0.75rem; color:var(--ink-soft);}
+  .qbar #play-back{float:left; margin-right:10px;}
+  .qbar span{display:inline-block; margin:10px 10px 0 0;}
+  .qbox{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:12px; margin:8px 0; text-align:center;}
+  .qtext{font-size:1.08rem; font-weight:bold; margin:4px 0 8px;}
+  .qrow{display:-webkit-flex; display:flex; -webkit-justify-content:center; justify-content:center; -webkit-align-items:center; align-items:center;}
+  .qrow canvas{width:210px; height:210px;}
+  #q-arrow{color:var(--ao); margin-left:10px; min-width:60px;}
+  #q-arrow svg{display:block; margin:2px 0;}
+  #q-after-wrap{margin-left:14px;}
+  .qlabel{font-size:0.67rem; color:var(--ink-soft);}
+  .choices{display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; -webkit-justify-content:center; justify-content:center; margin-top:6px;}
+  .choice{width:46%; max-width:210px; margin:1.5%; background:var(--card); border:4px solid var(--line); border-radius:16px; padding:8px; text-align:center; cursor:pointer;}
+  .choice canvas{width:100%; height:auto; display:block;}
+  .choice .cv{width:150px; height:150px; margin:0 auto;}
+  .choice .mark{font-size:0.83rem; min-height:1.4em; font-weight:bold;}
+  .choice.right{border-color:var(--ao); background:var(--ao-bg);}
+  .choice.right .mark{color:var(--ao);}
+  .choice.wrong{border-color:var(--daidai); background:var(--daidai-bg);}
+  .choice.wrong .mark{color:var(--daidai-ink);}
+  .choice-count .cnum{font-size:1.33rem; font-weight:bold; padding:14px 0 4px;}
+  .choice-count .carw{color:var(--ao); min-height:40px;}
+  .msg{text-align:center; font-size:0.92rem; min-height:1.6em; margin:8px 0;}
+  .msg.good{color:var(--ao); font-weight:bold;}
+  .msg.warn{color:var(--daidai-ink); font-weight:bold;}
+  .playfoot{text-align:center;}
+  .playfoot button{margin:4px 8px;}
+  #next-btn{font-size:1.08rem; padding:14px 40px;}
+
+  /* けっか */
+  .res{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:16px; text-align:center;}
+  .res canvas{width:150px; height:150px;}
+  .stars{font-size:1.42rem; letter-spacing:4px; color:var(--daidai);}
+  .res button{margin:8px 6px;}
+
+  /* ずかん */
+  .zlist{overflow:hidden;}
+  .zcard{float:left; width:30%; margin:1.5%; background:var(--card); border:2px solid var(--line); border-radius:14px; padding:8px; text-align:center; font-size:0.75rem;}
+  .zcard canvas{width:100%; height:auto;}
+  .zcard.none{color:var(--nashi); background:var(--locked);}
+  .zcard.none canvas{opacity:0.25;}
+
+  /* おとなのひと */
+  .grown{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:14px; font-size:0.75rem;}
+  .grown table{border-collapse:collapse; width:100%; margin:8px 0;}
+  .grown th,.grown td{border:1px solid var(--line); padding:6px 10px; text-align:left;}
+  .grown input,.grown select{font-size:0.83rem; padding:8px; border:1px solid var(--line); border-radius:8px; width:100%; color:var(--ink); background:var(--card);}
+  .grown label{display:block; margin-top:10px;}
+  #reset-2{background:var(--murasaki); color:var(--on-murasaki);}
+
+  @media (max-width:600px){
+    .qrow canvas{width:160px; height:160px;}
+    .choice .cv{width:120px; height:120px;}
+    .zcard{width:47%;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== はじめの がめん ===== -->
+<div id="scr-home" class="screen">
+  <div class="head">
+    <h1>くるくる ずけい</h1>
+  </div>
+  <p class="note">かたちを まわすと どう見える？ あてると はっぱが もらえて、いきものが そだつよ。</p>
+  <div class="egg-row">
+    <canvas id="home-egg" width="120" height="120"></canvas>
+    <div class="egg-text">
+      <p id="home-rank"></p>
+      <p id="home-leaves" class="note"></p>
+      <p id="home-stage"></p>
+      <p id="home-creature" class="note"></p>
+    </div>
+  </div>
+  <div class="lv-list">
+    <button id="lv-1">やさしい <span>みぎに 1かい。3まいから えらぶ</span><span id="lv-sug-1"></span></button>
+    <button id="lv-2">ふつう <span>みぎ・ひだり・2かい。4まいから えらぶ</span><span id="lv-sug-2"></span></button>
+    <button id="lv-3">むずかしい <span>3かいまで。「なんかい まわした？」も でる</span><span id="lv-sug-3"></span></button>
+  </div>
+  <div class="home-foot">
+    <button id="zukan-btn" class="sub"><span id="home-zukan-count">ずかん</span></button>
+    <button id="grown-btn" class="sub small">おとなのひと（ながおし）</button>
+  </div>
+</div>
+
+<!-- ===== あそぶ ===== -->
+<div id="scr-play" class="screen" style="display:none">
+  <div class="qbar">
+    <button id="play-back" class="sub small">やめる</button>
+    <span id="play-level"></span><span id="play-no"></span>
+  </div>
+  <div class="qbox">
+    <div id="q-text" class="qtext"></div>
+    <div class="qrow">
+      <canvas id="q-before" width="210" height="210"></canvas>
+      <div id="q-arrow"></div>
+      <div id="q-after-wrap" style="display:none"><div class="qlabel">まわした あと</div><canvas id="q-after" width="210" height="210"></canvas></div>
+    </div>
+    <div id="q-mark-note" class="note"></div>
+  </div>
+  <div id="choices" class="choices"></div>
+  <div id="msg" class="msg"></div>
+  <div class="playfoot">
+    <button id="hint-btn" class="sub">ヒント</button>
+    <button id="next-btn" style="display:none">つぎへ</button>
+  </div>
+</div>
+
+<!-- ===== けっか ===== -->
+<div id="scr-result" class="screen" style="display:none">
+  <div class="res">
+    <h2 id="res-title"></h2>
+    <div id="res-stars" class="stars"></div>
+    <p id="res-score"></p>
+    <p id="res-leaves"></p>
+    <canvas id="res-egg" width="150" height="150"></canvas>
+    <p id="res-events"></p>
+    <div>
+      <button id="res-again">もういちど</button>
+      <button id="res-up" style="display:none"></button>
+      <button id="res-home" class="sub">はじめに もどる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ずかん ===== -->
+<div id="scr-zukan" class="screen" style="display:none">
+  <div class="head"><h1>ずかん</h1><button id="zukan-back" class="sub small right">もどる</button></div>
+  <p class="note">はっぱを 24まい あつめると、1ぴき うまれるよ。</p>
+  <div id="zukan-list" class="zlist"></div>
+</div>
+
+<!-- ===== おとなのひと ===== -->
+<div id="scr-grown" class="screen" style="display:none">
+  <div class="head"><h1>おとなのひと</h1><button id="grown-back" class="sub small right">もどる</button></div>
+  <div class="grown">
+    <label>なまえ（ひらがな・8もじまで）<input id="grown-name" type="text" maxlength="8"></label>
+    <label>1まわりの もんだいの かず
+      <select id="grown-per"><option value="5">5もん</option><option value="10">10もん</option></select>
+    </label>
+    <p><button id="grown-save" class="small">ほぞんして もどる</button></p>
+    <table id="grown-table"></table>
+    <h3>目安</h3>
+    <p>やさしいで 5問中4問が続いたら ふつうへ。</p>
+    <h3>問題の形</h3>
+    <ul>
+      <li>過去問型＝2×2の絵を回したとき、しるしの絵の向きを4つから選ぶ</li>
+      <li>基本型＝かたちを回した形を選ぶ（鏡の形もまざる）</li>
+      <li>回数型＝元の形と回した形を見て、何回回したか</li>
+    </ul>
+    <p><button id="reset-1" class="sub small">きろくを ぜんぶ けす</button> <button id="reset-2" class="small" style="display:none">ほんとうに けす</button></p>
+    <p id="grown-ver" class="note"></p>
+  </div>
+</div>
+
+<script>
+<!--APP_JS-->
+</script>
+<script>
+<!--UI_JS-->
+</script>
+</body>
+</html>

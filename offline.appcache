@@ -1,0 +1,12 @@
+CACHE MANIFEST
+# くるくる ずけい はんすう 1
+# index.html md5 72537ced415b5a0099e94463984ce8bb
+# icon.png md5 39847f0cf42e05db404fb7ece2228c13
+
+CACHE:
+./
+index.html
+icon.png
+
+NETWORK:
+*

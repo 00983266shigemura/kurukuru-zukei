@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- format-ok CCが機械で読む自己点検の出力（しげ向け成果物ではない） -->
+<title>くるくる ずけい 自己点検</title>
+<style>
+  :root{color-scheme: light dark; --ground:#ffffff; --ink:#1b1b1b;}
+  @media (prefers-color-scheme: dark){ :root{--ground:#14191f; --ink:#e8edf2;} }
+  html{font-size:24px;}
+  body{background:var(--ground); color:var(--ink); font-family:monospace; font-size:0.6rem; white-space:pre;}
+</style>
+<script>
+  window.__loadErrors = [];
+  window.onerror = function (msg, src, line, col) { window.__loadErrors.push('ERR ' + msg + ' @' + src + ':' + line + ':' + col); };
+</script>
+</head>
+<body>
+<div id="out">（まだ）</div>
+<script src="../src/app.js" onerror="window.__loadErrors.push('ERR script load failed')"></script>
+<script>
+(function () {
+  var out = document.getElementById('out'), lines;
+  try {
+    if (!window.KZ) { throw new Error('KZ が無い＝app.js が最後まで実行されていない'); }
+    lines = window.KZ.selfTest(document);
+    out.textContent = lines.concat(window.__loadErrors).join('\n');
+  } catch (e) {
+    out.textContent = 'FAIL=exception ' + (e && e.message ? e.message : e) + '\n' + window.__loadErrors.join('\n') + '\n' + (e && e.stack ? e.stack : '');
+  }
+  document.title = 'DONE';
+})();
+</script>
+</body>
+</html>
