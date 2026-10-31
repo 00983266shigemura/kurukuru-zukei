@@ -409,10 +409,9 @@
   /* canvas に 1枚を 描く（Retina の 倍率に 合わせる） */
   function paintCanvas(canvas, view, extra, opts) {
     var css = canvas.clientWidth || parseInt(canvas.getAttribute('width'), 10) || 120;
-    var dpr = global.devicePixelRatio || 1, ctx;
-    if (canvas.width !== Math.round(css * dpr)) {
-      canvas.width = Math.round(css * dpr); canvas.height = Math.round(css * dpr);
-    }
+    var dpr = global.devicePixelRatio || 1, ctx, px = Math.round(css * dpr);
+    /* たて・よこ 両方を見る＝よこだけ見ると、倍率2の端末で 既定の 300×150 が「同じ」と誤判定され、絵が つぶれる（2026-10-31 実測） */
+    if (canvas.width !== px || canvas.height !== px) { canvas.width = px; canvas.height = px; }
     ctx = canvas.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -642,8 +641,8 @@
   KZ.drawStage = drawStage;
 
   function paintStage(canvas, stage, picId) {
-    var css = canvas.clientWidth || 120, dpr = global.devicePixelRatio || 1, ctx;
-    if (canvas.width !== Math.round(css * dpr)) { canvas.width = Math.round(css * dpr); canvas.height = Math.round(css * dpr); }
+    var css = canvas.clientWidth || 120, dpr = global.devicePixelRatio || 1, ctx, px = Math.round(css * dpr);
+    if (canvas.width !== px || canvas.height !== px) { canvas.width = px; canvas.height = px; }
     ctx = canvas.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.scale(dpr, dpr); ctx.translate(css / 2, css / 2);
