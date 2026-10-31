@@ -57,7 +57,7 @@
     KZ.paintCanvas(el('q-before'), q.type === 'count' ? q.before : { base: q.base, mirror: 0, rot: 0 }, 0);
     el('q-after-wrap').style.display = isCount ? 'block' : 'none';
     if (isCount) { KZ.paintCanvas(el('q-after'), q.after, 0); }
-    setText(el('q-mark-note'), q.type === 'toka' ? '●が ついている えを よく見てね' : (q.type === 'card' ? 'えの ばしょと むきを ぜんぶ 見てね' : ''));
+    setText(el('q-mark-note'), q.type === 'toka' ? '●が ついている えを よく みてね' : (q.type === 'card' ? 'えの ばしょと むきを ぜんぶ みてね' : ''));
     setText(el('q-count'), '');
     /* えらぶ */
     box.innerHTML = '';
@@ -121,7 +121,7 @@
         KZ.snd.play('kotae');
         nodes[q.answerIndex].className += ' right';
         setText(nodes[q.answerIndex].getElementsByClassName('mark')[0], '✓ こたえ');
-        setText(el('msg'), 'こたえは これ。まわる ようすを 見てね');
+        setText(el('msg'), 'こたえは これ。まわる ようすを みてね');
         el('msg').className = 'msg warn';
         playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 800);
       }
@@ -187,7 +187,7 @@
       if (t < 1) { animTimer = requestFrame(step); } else { animTimer = null; KZ.paintCanvas(canvas, view, 0); }
     }
     animTimer = requestFrame(step);
-    setText(el('msg'), 'こっちに まわるよ。●や しるしが どこへ いくか 見てね');
+    setText(el('msg'), 'こっちに まわるよ。●や しるしが どこへ いくか みてね');
     el('msg').className = 'msg';
   }
 
