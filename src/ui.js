@@ -50,7 +50,7 @@
     setText(el('play-level'), KZ.LEVELS[G.level].name);
     setText(el('play-no'), (G.idx + 1) + ' ／ ' + G.qs.length + ' もんめ');
     setText(el('q-text'), KZ.questionText(q));
-    el('q-arrow').innerHTML = isCount ? '' : repeatArrow(q.dir, q.times);
+    el('q-arrow').innerHTML = isCount ? '' : repeatArrow(q.dir, q.times, 56);
     el('q-arrow').style.display = isCount ? 'none' : 'block';
     /* もとの かたち */
     el('q-before').style.display = 'block';
@@ -65,7 +65,7 @@
       wrap = doc.createElement('div'); wrap.className = 'choice'; wrap.setAttribute('data-i', String(i));
       if (isCount) {
         wrap.className += ' choice-count';
-        wrap.innerHTML = '<div class="cnum">' + q.choices[i] + 'かい</div><div class="carw">' + repeatArrow('migi', q.choices[i], 30) + '</div>';
+        wrap.innerHTML = '<div class="cnum">' + q.choices[i] + 'かい</div><div class="carw">' + repeatArrow('migi', q.choices[i], 40) + '</div>';
       } else {
         c = doc.createElement('canvas'); c.className = 'cv';
         wrap.appendChild(c);
@@ -102,25 +102,28 @@
       node.className += ' right';
       setText(node.getElementsByClassName('mark')[0], '✓ せいかい');
       leaves = (G.tries === 0) ? 2 : 1;
+      KZ.snd.play(G.tries === 0 ? 'ok' : 'ok2');
       G.ok++; if (G.tries === 0) { G.firstOk++; }
       G.leaves += leaves;
       setText(el('msg'), (G.tries === 0 ? 'せいかい！ はっぱ 2まい' : 'せいかい！ はっぱ 1まい'));
       el('msg').className = 'msg good';
-      playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; });
+      playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 650);
     } else {
       G.tries++;
       node.className += ' wrong';
       setText(node.getElementsByClassName('mark')[0], '！ ちがう');
       if (G.tries === 1) {
+        KZ.snd.play('oshii');
         setText(el('msg'), 'おしい！ もういちど えらんでみよう');
         el('msg').className = 'msg warn';
       } else {
         G.done = true;
+        KZ.snd.play('kotae');
         nodes[q.answerIndex].className += ' right';
         setText(nodes[q.answerIndex].getElementsByClassName('mark')[0], '✓ こたえ');
         setText(el('msg'), 'こたえは これ。まわる ようすを 見てね');
         el('msg').className = 'msg warn';
-        playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; });
+        playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 800);
       }
     }
     el('hint-btn').style.display = 'none';
@@ -129,7 +132,7 @@
   /* もとの かたちを 実際に まわして 見せる（紙を まわす 練習の かわり）。
      1回ぶん（90度）まわして 止まり、「1かい」と数えてから つぎの 1回へ＝「3かい まわる」の イメージを つける */
   var TURN_MS = 650, PAUSE_MS = 550;
-  function playTurnAnim(q, done) {
+  function playTurnAnim(q, done, delay) {
     var canvas = el('q-before'), view, sign, total, start = null, n = 0, cnt = el('q-count');
     if (q.type === 'count') { view = q.before; sign = 1; total = q.times; }
     else { view = { base: q.base, mirror: 0, rot: 0 }; sign = (q.dir === 'migi') ? 1 : -1; total = q.times; }
@@ -137,20 +140,23 @@
     setText(cnt, '');
     function step(ts) {
       var t, ang;
-      if (start === null) { start = ts; }
+      if (start === null) { start = ts; KZ.snd.sweep(TURN_MS / 1000); }
       t = Math.min(1, (ts - start) / TURN_MS);
       ang = sign * (n + easeInOut(t)) * (Math.PI / 2);
       KZ.paintCanvas(canvas, view, ang);
       if (t < 1) { animTimer = requestFrame(step); return; }
       n++;
       setText(cnt, n + 'かい' + (n === total ? '！' : ''));
+      KZ.snd.play(n === total ? 'last' : 'count' + Math.min(3, n));
       if (n < total) {
         animTimer = global.setTimeout(function () { start = null; animTimer = requestFrame(step); }, PAUSE_MS);
       } else {
         animTimer = null; if (done) { done(); }
       }
     }
-    animTimer = requestFrame(step);
+    /* せいかいの おとが おわってから まわしはじめる */
+    if (delay) { animTimer = global.setTimeout(function () { animTimer = requestFrame(step); }, delay); }
+    else { animTimer = requestFrame(step); }
   }
   function easeInOut(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
   function requestFrame(fn) {
@@ -170,6 +176,7 @@
     if (G.done || q.type === 'count') { return; }
     view = { base: q.base, mirror: 0, rot: 0 }; sign = (q.dir === 'migi') ? 1 : -1;
     stopAnim();
+    KZ.snd.sweep(0.7);
     function step(ts) {
       var t, ang;
       if (start === null) { start = ts; }
@@ -205,6 +212,9 @@
       if (events[i].kind === 'adult') { adultId = events[i].id; lines.push(KZ.picById(events[i].id).name + ' が うまれた！ ずかんに はいったよ'); }
       if (events[i].kind === 'lap') { lines.push('ぜんぶの いきものが そろった！ ' + events[i].lap + 'しゅうめ'); }
     }
+    /* もりあがる おと＝ぜんぶ せいかいは ながい ファンファーレ。そだったら キラキラを つづけて */
+    KZ.snd.play(G.ok === G.qs.length ? 'perfect' : 'round');
+    if (lines.length > 0) { KZ.snd.play('grow', G.ok === G.qs.length ? 1.5 : 1.1); }
     if (lines.length === 0) { lines.push(KZ.STAGE_NAME[KZ.stageOf(S.cLeaves)] + ' が そだっているよ（せいちゅうまで あと ' + (KZ.GROW[3] - S.cLeaves) + 'まい）'); }
     setText(el('res-events'), lines.join(' ／ '));
     if (adultId) { KZ.paintStage(el('res-egg'), 3, adultId); }
@@ -237,6 +247,7 @@
     var t = el('grown-table'), i, rows = '';
     el('grown-name').value = S.name || '';
     el('grown-per').value = String(S.perRound);
+    el('grown-snd').value = (S.sound === false) ? 'off' : 'on';
     for (i = 1; i <= 3; i++) {
       rows += '<tr><td>' + KZ.LEVELS[i].name + '</td><td>' + S.lv[i].rounds + '</td><td>' + S.lv[i].q + '</td><td>' + S.lv[i].ok + '</td></tr>';
     }
@@ -321,17 +332,26 @@
     on('grown-save', function () {
       S.name = String(el('grown-name').value || '').slice(0, 8);
       S.perRound = parseInt(el('grown-per').value, 10) === 10 ? 10 : 5;
+      S.sound = el('grown-snd').value !== 'off';
+      KZ.snd.on = S.sound;
       KZ.saveState(S); renderHome(); show('home');
     });
     on('reset-1', function () { el('reset-2').style.display = 'inline-block'; });
     on('reset-2', function () {
-      var keep = { name: S.name, perRound: S.perRound };
-      S = KZ.freshState(); S.name = keep.name; S.perRound = keep.perRound;
+      var keep = { name: S.name, perRound: S.perRound, sound: S.sound };
+      S = KZ.freshState(); S.name = keep.name; S.perRound = keep.perRound; S.sound = keep.sound;
       KZ.saveState(S); renderGrown(); setText(el('grown-ver'), 'きろくを けしました');
     });
     global.addEventListener('resize', function () {
       if (screen === 'play' && G) { paintChoices(); KZ.paintCanvas(el('q-before'), G.qs[G.idx].type === 'count' ? G.qs[G.idx].before : { base: G.qs[G.idx].base, mirror: 0, rot: 0 }, 0); if (G.qs[G.idx].type === 'count') { KZ.paintCanvas(el('q-after'), G.qs[G.idx].after, 0); } }
       if (screen === 'home') { renderHome(); }
+    }, false);
+    /* おと＝さいしょの タッチで おこす。ボタンを おしたら「ぽっ」 */
+    KZ.snd.on = (S.sound !== false);
+    doc.addEventListener('touchend', function () { KZ.snd.unlock(); }, false);
+    doc.addEventListener('click', function (ev) {
+      KZ.snd.unlock();
+      if (ev.target && ev.target.tagName === 'BUTTON') { KZ.snd.play('tap'); }
     }, false);
     tidyUrl();
     watchCache();

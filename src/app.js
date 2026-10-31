@@ -10,7 +10,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 2;
+  KZ.APP_VERSION = 3;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 
@@ -751,17 +751,111 @@
   }
   KZ.questionText = questionText;
 
-  /* まわる やじるしの 絵（SVG の文字列・絵文字は使わない） */
+  /* まわる やじるしの 絵（SVG の文字列・絵文字は使わない）。
+     1こ＝90度（まるの 4ぶんの1）。うすい おうぎ形で「4ぶんの1 まわる」を見せ、
+     先は 大きな 三角で つぶれないように する。みぎ＝12時から3時へ・ひだり＝左右反転 */
   function arrowSvg(dir, size) {
     var s = size || 44;
     var flip = dir === 'hidari' ? ' transform="scale(-1,1) translate(-48,0)"' : '';
     return '<svg class="arw" width="' + s + '" height="' + s + '" viewBox="0 0 48 48" aria-hidden="true">' +
       '<g' + flip + '>' +
-      '<path d="M 10 28 A 15 15 0 1 1 24 39" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>' +
-      '<path d="M 30 44 L 22 36 L 32 32 Z" fill="currentColor"/>' +
+      '<circle cx="22" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-opacity="0.45" stroke-dasharray="3 3"/>' +
+      '<path d="M 22 24 L 22 8 A 16 16 0 0 1 38 24 Z" fill="currentColor" fill-opacity="0.18"/>' +
+      '<path d="M 22 8 L 22 24 L 38 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.7"/>' +
+      '<path d="M 22 8 A 16 16 0 0 1 37.3 19.5" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>' +
+      '<path d="M 38 37 L 30.5 21 L 45.5 21 Z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
       '</g></svg>';
   }
   KZ.arrowSvg = arrowSvg;
+
+  /* ================= おと（ファイルを使わず その場で つくる） =================
+     古い iPad は さいしょの タッチの中で おとの しくみを 起こす（unlock）。
+     音が出せない ブラウザでも あそびは とまらない（すべて try で かこむ）。 */
+  var NOTE = { C5: 523.3, D5: 587.3, E5: 659.3, F5: 698.5, G5: 784.0, A5: 880.0, B5: 987.8,
+    C6: 1046.5, D6: 1174.7, E6: 1318.5, F6: 1396.9, G6: 1568.0, A6: 1760.0, C7: 2093.0, E4: 329.6, G4: 392.0, A4: 440.0 };
+  KZ.NOTE = NOTE;
+  /* おとの ならび＝[おんぷ, はじまり(びょう), ながさ(びょう), おおきさ(0〜1), なみの かたち] */
+  var SOUNDS = {
+    tap: [['A5', 0, 0.06, 0.35, 'triangle']],
+    ok: [['C6', 0, 0.09, 0.6, 'square'], ['E6', 0.08, 0.09, 0.6, 'square'], ['G6', 0.16, 0.09, 0.6, 'square'],
+      ['C7', 0.24, 0.28, 0.6, 'square'], ['G6', 0.24, 0.28, 0.35, 'triangle']],
+    ok2: [['E6', 0, 0.09, 0.5, 'square'], ['A6', 0.09, 0.22, 0.5, 'square']],
+    oshii: [['G5', 0, 0.12, 0.45, 'sine'], ['E5', 0.13, 0.2, 0.45, 'sine']],
+    kotae: [['A4', 0, 0.16, 0.4, 'sine'], ['C5', 0.16, 0.16, 0.4, 'sine'], ['E5', 0.32, 0.26, 0.4, 'sine']],
+    /* 1かいめ・2かいめ・3かいめ と だんだん たかく（かぞえる きもちを もりあげる） */
+    count1: [['C6', 0, 0.16, 0.6, 'triangle']],
+    count2: [['E6', 0, 0.16, 0.6, 'triangle']],
+    count3: [['G6', 0, 0.16, 0.6, 'triangle']],
+    last: [['C7', 0, 0.12, 0.55, 'triangle'], ['E6', 0, 0.3, 0.35, 'square'], ['G6', 0.1, 0.35, 0.35, 'square']],
+    round: [['C5', 0, 0.12, 0.55, 'square'], ['E5', 0.13, 0.12, 0.55, 'square'], ['G5', 0.26, 0.12, 0.55, 'square'],
+      ['C6', 0.42, 0.55, 0.5, 'square'], ['E6', 0.42, 0.55, 0.35, 'triangle'], ['G5', 0.42, 0.55, 0.35, 'triangle']],
+    perfect: [['C5', 0, 0.1, 0.55, 'square'], ['E5', 0.1, 0.1, 0.55, 'square'], ['G5', 0.2, 0.1, 0.55, 'square'],
+      ['C6', 0.3, 0.1, 0.55, 'square'], ['E6', 0.4, 0.1, 0.55, 'square'], ['G6', 0.5, 0.1, 0.55, 'square'],
+      ['C7', 0.62, 0.7, 0.5, 'square'], ['E6', 0.62, 0.7, 0.35, 'triangle'], ['G6', 0.62, 0.7, 0.35, 'triangle']],
+    grow: [['G5', 0, 0.08, 0.45, 'triangle'], ['C6', 0.07, 0.08, 0.45, 'triangle'], ['E6', 0.14, 0.08, 0.45, 'triangle'],
+      ['G6', 0.21, 0.08, 0.45, 'triangle'], ['C7', 0.28, 0.08, 0.45, 'triangle'], ['E6', 0.36, 0.08, 0.4, 'triangle'],
+      ['G6', 0.43, 0.08, 0.4, 'triangle'], ['C7', 0.5, 0.45, 0.5, 'triangle']]
+  };
+  KZ.SOUNDS = SOUNDS;
+  var snd = { ctx: null, on: true, vol: 0.22 };
+  KZ.snd = snd;
+  function audioClass() { return global.AudioContext || global.webkitAudioContext || null; }
+  /* さいしょの タッチで よぶ（なんど よんでも よい） */
+  snd.unlock = function () {
+    var AC, b, src;
+    try {
+      if (!snd.ctx) {
+        AC = audioClass(); if (!AC) { return false; }
+        snd.ctx = new AC();
+        b = snd.ctx.createBuffer(1, 1, 22050);
+        src = snd.ctx.createBufferSource(); src.buffer = b; src.connect(snd.ctx.destination);
+        if (src.start) { src.start(0); } else if (src.noteOn) { src.noteOn(0); }
+      }
+      if (snd.ctx.state && snd.ctx.state !== 'running' && snd.ctx.resume) { snd.ctx.resume(); }
+      return true;
+    } catch (e) { return false; }
+  };
+  function tone(ctx, freq, at, dur, vol, type) {
+    var o = ctx.createOscillator(), g = ctx.createGain(), peak = Math.max(0.0002, vol * snd.vol);
+    o.type = type || 'triangle';
+    o.frequency.setValueAtTime(freq, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.linearRampToValueAtTime(peak, at + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g); g.connect(ctx.destination);
+    if (o.start) { o.start(at); o.stop(at + dur + 0.03); } else { o.noteOn(at); o.noteOff(at + dur + 0.03); }
+  }
+  /* くるっと まわる あいだの「ひゅいーん」（ひくい→たかい） */
+  snd.sweep = function (sec) {
+    var ctx = snd.ctx, o, g, t;
+    if (!snd.on || !ctx) { return false; }
+    try {
+      t = ctx.currentTime + 0.01;
+      o = ctx.createOscillator(); g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(380, t);
+      o.frequency.exponentialRampToValueAtTime(900, t + sec);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.16 * snd.vol / 0.22, t + 0.08);
+      g.gain.linearRampToValueAtTime(0.0001, t + sec);
+      o.connect(g); g.connect(ctx.destination);
+      if (o.start) { o.start(t); o.stop(t + sec + 0.03); } else { o.noteOn(t); o.noteOff(t + sec + 0.03); }
+      return true;
+    } catch (e) { return false; }
+  };
+  /* なまえで ならす。delay＝なんびょう あとか */
+  snd.play = function (name, delay) {
+    var ctx = snd.ctx, seq = SOUNDS[name], t0, i, n;
+    if (!snd.on || !ctx || !seq) { return false; }
+    try {
+      t0 = ctx.currentTime + 0.01 + (delay || 0);
+      for (i = 0; i < seq.length; i++) {
+        n = seq[i];
+        tone(ctx, NOTE[n[0]], t0 + n[1], n[2], n[3], n[4]);
+      }
+      return true;
+    } catch (e) { return false; }
+  };
 
   /* ================= きろく（端末内保存） ================= */
   function freshState() {
@@ -1072,6 +1166,26 @@
     ok(nextRankAt(0) === 20 && nextRankAt(200) === null, 'T5 つぎの かんむり');
     ok(questionText({ type: 'turn', dir: 'hidari', times: 2, wording: 'dir' }) === 'ひだりに 2かい まわすと どれ？', 'T5 もんだい文');
     ok(arrowSvg('hidari').indexOf('scale(-1,1)') > 0 && arrowSvg('migi').indexOf('scale(-1,1)') < 0, 'T5 やじるしの向き');
+    /* やじるし＝4ぶんの1（90度）の 弧。大きい弧（180度より大きい）の しるし「1 1」を 使わない */
+    ok(arrowSvg('migi').indexOf('A 16 16 0 0 1') > 0 && arrowSvg('migi').indexOf(' 0 1 1 ') < 0, 'T6 やじるしは 90度の 弧');
+
+    /* T6 おと＝ならびの 中身が ただしい・音が出せない ときも とまらない */
+    (function () {
+      var name, seq, i, n, bad = 0, types = { sine: 1, square: 1, triangle: 1 }, keep = snd.ctx;
+      for (name in SOUNDS) {
+        if (!SOUNDS.hasOwnProperty(name)) { continue; }
+        seq = SOUNDS[name];
+        for (i = 0; i < seq.length; i++) {
+          n = seq[i];
+          if (!NOTE[n[0]] || !(n[1] >= 0) || !(n[2] > 0) || !(n[3] > 0 && n[3] <= 1) || !types[n[4]]) { bad++; }
+        }
+      }
+      ok(bad === 0, 'T6 おとの ならび（おんぷ・ながさ・おおきさ・かたち）');
+      ok(NOTE[SOUNDS.count1[0][0]] < NOTE[SOUNDS.count2[0][0]] && NOTE[SOUNDS.count2[0][0]] < NOTE[SOUNDS.count3[0][0]], 'T6 1かい→3かいで だんだん たかく');
+      snd.ctx = null;
+      ok(snd.play('ok') === false && snd.sweep(0.5) === false, 'T6 おとの しくみが ない ときは ならさず とまらない');
+      snd.ctx = keep;
+    })();
 
     KZ.seed(null);
     out.unshift('PASS=' + pass + ' FAIL=' + fail);

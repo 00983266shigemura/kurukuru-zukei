@@ -75,7 +75,7 @@
   .qbar #play-back{float:left; margin-right:10px;}
   .qbar span{display:inline-block; margin:10px 10px 0 0;}
   .qbox{background:var(--card); border:2px solid var(--line); border-radius:16px; padding:12px; margin:8px 0; text-align:center;}
-  .qtext{font-size:1.08rem; font-weight:bold; margin:4px 0 8px;}
+  .qtext{font-size:1.08rem; font-weight:bold; margin:4px 0 8px; word-break:keep-all;}
   .qrow{display:-webkit-flex; display:flex; -webkit-justify-content:center; justify-content:center; -webkit-align-items:center; align-items:center;}
   .qrow canvas{width:210px; height:210px;}
   #q-arrow{color:var(--ao); margin-left:10px; min-width:60px;}
@@ -122,6 +122,27 @@
   .grown label{display:block; margin-top:10px;}
   #reset-2{background:var(--murasaki); color:var(--on-murasaki);}
 
+  /* iPad よこおき＝1がめんに おさめる（たて 640px 以内＝Safari の 上の バーが あっても はみださない）。
+     ひだり＝もんだい・ことば・ボタン／みぎ＝えらぶ 4まい。たておき は これまでどおり */
+  @media (min-width:900px) and (orientation:landscape){
+    .screen{max-width:1024px; padding:8px 14px 8px; overflow:hidden;}
+    #scr-play .qbox{float:left; width:48%; margin:6px 0 0;}
+    #scr-play .choices{float:right; width:50%; margin-top:0;}
+    #scr-play .msg{float:left; clear:left; width:48%; margin:8px 0 4px;}
+    #scr-play .playfoot{float:left; clear:left; width:48%;}
+    .qrow canvas{width:180px; height:180px;}
+    .qtext{margin:2px 0 6px;}
+    .choice{margin:1% 1.5%;}
+    .choice .cv{width:170px; height:170px;}
+    #q-arrow{min-width:64px;}
+    #scr-home .head,#scr-home > .note,#scr-home .egg-row,#scr-home .home-foot{float:left; clear:left; width:46%;}
+    #scr-home .lv-list{float:right; width:52%;}
+    #scr-home .lv-list button:first-child{margin-top:4px;}
+    .zcard{width:30%;}
+    .zcard canvas{max-width:170px;}
+    .grown-l{float:left; width:48%;}
+    .grown-r{float:right; width:48%;}
+  }
   @media (max-width:600px){
     .qrow canvas{width:160px; height:160px;}
     .choice .cv{width:120px; height:120px;}
@@ -207,13 +228,18 @@
 <!-- ===== おとなのひと ===== -->
 <div id="scr-grown" class="screen" style="display:none">
   <div class="head"><h1>おとなのひと</h1><button id="grown-back" class="sub small right">もどる</button></div>
-  <div class="grown">
+  <div class="grown"><div class="grown-l">
     <label>なまえ（ひらがな・8もじまで）<input id="grown-name" type="text" maxlength="8"></label>
     <label>1まわりの もんだいの かず
       <select id="grown-per"><option value="5">5もん</option><option value="10">10もん</option></select>
     </label>
+    <label>おと
+      <select id="grown-snd"><option value="on">あり</option><option value="off">なし</option></select>
+    </label>
+    <p class="note">おとが 出ないときは、iPad の 音量と 消音（ミュート）を 確かめてください。</p>
     <p><button id="grown-save" class="small">ほぞんして もどる</button></p>
     <table id="grown-table"></table>
+  </div><div class="grown-r">
     <h3>目安</h3>
     <p>やさしいで 5問中4問が続いたら ふつうへ。</p>
     <h3>問題の形</h3>
@@ -225,7 +251,7 @@
     </ul>
     <p><button id="reset-1" class="sub small">きろくを ぜんぶ けす</button> <button id="reset-2" class="small" style="display:none">ほんとうに けす</button></p>
     <p id="grown-ver" class="note"></p>
-  </div>
+  </div></div>
 </div>
 
 <script>

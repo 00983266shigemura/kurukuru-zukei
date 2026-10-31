@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<!-- くるくる ずけい ── iPad よこおき（1024×640）で 1がめんに おさまるかの 検査（CCが使う。tools/check_all.zsh から よぶ）
+     ぜんぶの がめんと、こたえた あとの すがた（ことば・つぎへ）を じゅんに 出して、たて・よこの はみだしを 測る。
+     #shot=〈なまえ〉 を つけると、そこで とめて スクリーンショット用に する -->
+<html lang="ja"><head><meta charset="utf-8"><title>fit check</title></head>
+<body style="margin:0">
+<iframe id="f" src="../index.html" style="width:1024px;height:640px;border:0;display:block"></iframe>
+<pre id="out"></pre>
+<script>
+var sz = location.hash.match(/size=(\d+)x(\d+)/) || [0, 1024, 640];
+var W = +sz[1], H = +sz[2], fails = [], n = 0, maxH = 0, maxTag = '';
+document.getElementById('f').style.width = W + 'px'; document.getElementById('f').style.height = H + 'px';
+var shot = (location.hash.match(/shot=([a-z0-9]+)/) || [])[1] || '';
+function put(s) { document.getElementById('out').textContent += s + '\n'; }
+document.getElementById('f').onload = function () {
+  var w = this.contentWindow, d = w.document, errs = [];
+  w.onerror = function (m) { errs.push(String(m)); };
+  function el(id) { return d.getElementById(id); }
+  function meas(tag) {
+    var de = d.documentElement, h = Math.max(de.scrollHeight, d.body.scrollHeight), wd = Math.max(de.scrollWidth, d.body.scrollWidth);
+    n++;
+    if (h > maxH) { maxH = h; maxTag = tag; }
+    if (h > H || wd > W) { fails.push(tag + ' たて=' + h + ' よこ=' + wd); }
+    return shot === tag;
+  }
+  function stop() { throw 'shot'; }
+  try {
+    w.KZ.seed(7);
+    if (meas('home')) { stop(); }
+    var L, r, q, ch, k, done;
+    for (L = 1; L <= 3; L++) {
+      for (r = 0; r < 6; r++) {
+        el('lv-' + L).click();
+        for (q = 0; q < 5; q++) {
+          if (meas('play' + L)) { stop(); }
+          ch = el('choices').getElementsByClassName('choice');
+          for (k = 0; k < 3 && k < ch.length; k++) {
+            done = el('msg').className.indexOf('good') >= 0 || el('next-btn').style.display !== 'none' || el('msg').textContent.indexOf('こたえは') === 0;
+            if (done) { break; }
+            ch[k].click();
+          }
+          el('next-btn').style.display = 'inline-block';
+          if (meas('ans' + L)) { stop(); }
+          el('next-btn').click();
+        }
+        if (meas('result' + L)) { stop(); }
+        el('res-home').click();
+      }
+      if (meas('homeafter')) { stop(); }
+    }
+    el('zukan-btn').click();
+    if (meas('zukan')) { stop(); }
+    el('zukan-back').click();
+    var ev = d.createEvent('MouseEvents'); ev.initEvent('mousedown', true, true); el('grown-btn').dispatchEvent(ev);
+    w.setTimeout(function () {
+      meas('grown');
+      put('MEASURED=' + n + ' MAXH=' + maxH + ' at ' + maxTag);
+      put('ERRS=' + errs.length + (errs.length ? ' ' + errs.join(' | ') : ''));
+      put(fails.length === 0 && errs.length === 0 ? 'FIT=PASS' : 'FIT=FAIL ' + fails.slice(0, 12).join(' / '));
+    }, 1500);
+  } catch (e) {
+    if (e === 'shot') { put('SHOT=' + shot); document.getElementById('out').style.display = 'none'; }
+    else { put('FIT=FAIL 例外 ' + e); }
+  }
+};
+</script>
+</body></html>
