@@ -82,6 +82,7 @@
   #q-arrow svg{display:block; margin:2px 0;}
   #q-after-wrap{margin-left:14px;}
   .qlabel{font-size:0.67rem; color:var(--ink-soft);}
+  .qcount{min-height:1.5em; font-size:1.08rem; font-weight:bold; color:var(--ao); text-align:center;}
   .choices{display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; -webkit-justify-content:center; justify-content:center; margin-top:6px;}
   .choice{width:46%; max-width:210px; margin:1.5%; background:var(--card); border:4px solid var(--line); border-radius:16px; padding:8px; text-align:center; cursor:pointer;}
   .choice canvas{width:100%; height:auto; display:block;}
@@ -146,9 +147,9 @@
     </div>
   </div>
   <div class="lv-list">
-    <button id="lv-1">やさしい <span>みぎに 1かい。3まいから えらぶ</span><span id="lv-sug-1"></span></button>
-    <button id="lv-2">ふつう <span>みぎ・ひだり・2かい。4まいから えらぶ</span><span id="lv-sug-2"></span></button>
-    <button id="lv-3">むずかしい <span>3かいまで。「なんかい まわした？」も でる</span><span id="lv-sug-3"></span></button>
+    <button id="lv-1">やさしい <span>みぎに 1かい。3まいから えらぶ。●の えの むき</span><span id="lv-sug-1"></span></button>
+    <button id="lv-2">ふつう <span>4つの えの カード ぜんたいを まわす。みぎ・ひだり・2かい</span><span id="lv-sug-2"></span></button>
+    <button id="lv-3">むずかしい <span>ほんばんの かたち。ほとんど おなじ 4まいから えらぶ。3かいまで</span><span id="lv-sug-3"></span></button>
   </div>
   <div class="home-foot">
     <button id="zukan-btn" class="sub"><span id="home-zukan-count">ずかん</span></button>
@@ -165,7 +166,7 @@
   <div class="qbox">
     <div id="q-text" class="qtext"></div>
     <div class="qrow">
-      <canvas id="q-before" width="210" height="210"></canvas>
+      <div><canvas id="q-before" width="210" height="210"></canvas><div id="q-count" class="qcount"></div></div>
       <div id="q-arrow"></div>
       <div id="q-after-wrap" style="display:none"><div class="qlabel">まわした あと</div><canvas id="q-after" width="210" height="210"></canvas></div>
     </div>
@@ -217,8 +218,9 @@
     <p>やさしいで 5問中4問が続いたら ふつうへ。</p>
     <h3>問題の形</h3>
     <ul>
-      <li>過去問型＝2×2の絵を回したとき、しるしの絵の向きを4つから選ぶ</li>
-      <li>基本型＝かたちを回した形を選ぶ（鏡の形もまざる）</li>
+      <li>本番型（2026年度 問題14-2）＝2×2の絵のカード全体を回した形を、ほとんど同じ4枚から選ぶ（1ますだけ向きが違う・位置だけ回って絵は回っていない・2ますが入れかわり）</li>
+      <li>しるし型（問題14-1）＝2×2の絵を回したとき、●の絵の向きを4つから選ぶ（やさしい だけ）</li>
+      <li>基本型＝かたちを回した形を選ぶ（鏡の形と、一部だけ上下が違う絵がまざる）</li>
       <li>回数型＝元の形と回した形を見て、何回回したか</li>
     </ul>
     <p><button id="reset-1" class="sub small">きろくを ぜんぶ けす</button> <button id="reset-2" class="small" style="display:none">ほんとうに けす</button></p>
@@ -239,7 +241,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 1;
+  KZ.APP_VERSION = 2;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 
@@ -323,9 +325,76 @@
     if (view.base.kind === 'grid') {
       return gridSig(transformGrid(view.base, view.mirror, view.rot));
     }
-    return 'p:' + view.base.id + ':' + view.mirror + ':' + view.rot;
+    if (view.base.kind === 'cardview') {
+      return cardSig(view.base);
+    }
+    return 'p:' + view.base.id + ':' + view.mirror + ':' + view.rot + ':' + (view.twist ? 1 : 0);
   }
   KZ.viewSig = viewSig;
+
+  /* ================= 本番型の カード（問題14-2）＝4つの ますに 線の絵。cells＝[左上, 右上, 左下, 右下] の {id, o} ================= */
+  function cardSig(card) {
+    var parts = [], i;
+    for (i = 0; i < 4; i++) { parts.push(card.cells[i].id + ':' + (card.cells[i].o % symOf(card.cells[i].id))); }
+    return 'c:' + parts.join(',');
+  }
+  KZ.cardSig = cardSig;
+  /* カード全体を みぎに 90度 k回 まわす＝ますの位置 左上→右上→右下→左下 と、各絵の向き +1 */
+  var CW_POS = [1, 3, 0, 2];
+  function rotateCard(card, k) {
+    var cells = card.cells.slice(), i, j, next;
+    for (j = 0; j < k; j++) {
+      next = [null, null, null, null];
+      for (i = 0; i < 4; i++) { next[CW_POS[i]] = { id: cells[i].id, o: (cells[i].o + 1) % 4 }; }
+      cells = next;
+    }
+    return { kind: 'cardview', cells: cells };
+  }
+  KZ.rotateCard = rotateCard;
+  function cloneCard(card) {
+    var cells = [], i;
+    for (i = 0; i < 4; i++) { cells.push({ id: card.cells[i].id, o: card.cells[i].o }); }
+    return { kind: 'cardview', cells: cells };
+  }
+  /* まちがいの えらびし（本番の ひっかけの型）。元と同じなら null を返す */
+  function cardOneOff(card) {        /* 1ますだけ 向きが ちがう */
+    var c = cloneCard(card), idx = [], i, p;
+    for (i = 0; i < 4; i++) { if (symOf(c.cells[i].id) === 4) { idx.push(i); } }
+    if (!idx.length) { return null; }
+    p = pick(idx);
+    c.cells[p].o = (c.cells[p].o + 1 + ri(3)) % 4;
+    return c;
+  }
+  function cardSwap(card) {          /* 2つの ますを 入れかえる（向きは そのまま） */
+    var c = cloneCard(card), a = ri(4), b = (a + 1 + ri(3)) % 4, t;
+    t = c.cells[a]; c.cells[a] = c.cells[b]; c.cells[b] = t;
+    return c;
+  }
+  function cardSlide(base, k) {      /* 位置だけ まわして 絵の向きは 元のまま（よくある まちがい） */
+    var c = rotateCard(base, k), i, byId = {};
+    for (i = 0; i < 4; i++) { byId[base.cells[i].id] = base.cells[i].o; }
+    for (i = 0; i < 4; i++) { c.cells[i].o = byId[c.cells[i].id]; }
+    return c;
+  }
+  function cardDiffCount(a, b) {
+    var n = 0, i;
+    for (i = 0; i < 4; i++) {
+      if (a.cells[i].id !== b.cells[i].id || (a.cells[i].o % symOf(a.cells[i].id)) !== (b.cells[i].o % symOf(b.cells[i].id))) { n++; }
+    }
+    return n;
+  }
+  KZ.cardDiffCount = cardDiffCount;
+  function makeCardBase() {
+    var ids = shuffle(CARD_IDS4).slice(0, 3), cells = [], i, extra;
+    /* 4つめは ときどき 回しても同じ形（ひしがた・じゅうじ）を混ぜる＝過去問と同じ */
+    extra = (rnd() < 0.35) ? pick(['daiya', 'juji', 'hachi']) : pick(CARD_IDS4);
+    while (ids.indexOf(extra) >= 0) { extra = pick(CARD_IDS4); }
+    ids.push(extra);
+    ids = shuffle(ids);
+    for (i = 0; i < 4; i++) { cells.push({ id: ids[i], o: ri(4) }); }
+    return { kind: 'cardview', cells: cells };
+  }
+  KZ.makeCardBase = makeCardBase;
 
   /* 回しても ひっくり返しても 全部ちがう かたちか（8とおりが 全部ちがう） */
   function allDistinct(base) {
@@ -393,36 +462,49 @@
     ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.stroke();
   }
 
+  /* twist＝「一部だけ 上下が ちがう」絵（まちがいの えらびしに使う＝ほとんど同じで 1か所だけ ちがう）。
+     feat() の中の部品だけを 上下にひっくり返す。からだは そのまま。 */
+  function feat(ctx, twist, fn) {
+    ctx.save();
+    if (twist) { ctx.scale(1, -1); }
+    fn();
+    ctx.restore();
+  }
+
   var PICS = [
-    { id: 'sakana', name: 'さかな', draw: function (ctx) {
+    { id: 'sakana', name: 'さかな', sym: 4, draw: function (ctx, twist) {
       poly(ctx, [[-26, 0], [-42, -15], [-42, 15]], COL.ao, COL.sumi, 2);             /* お */
-      poly(ctx, [[-10, -13], [0, -28], [8, -13]], COL.mizu, COL.sumi, 2);           /* せびれ（上だけ） */
+      feat(ctx, twist, function () { poly(ctx, [[-16, -11], [-4, -36], [14, -11]], COL.mizu, COL.sumi, 2); }); /* せびれ（上だけ・大きめ。twist＝おなかに） */
       ellipse(ctx, -4, 0, 26, 14, COL.ao, COL.sumi, 2);                             /* からだ */
       circle(ctx, 10, -4, 4.5, COL.shiro, COL.sumi, 1.5); circle(ctx, 11, -4, 2, COL.sumi); /* め */
       line(ctx, 17, 5, 22, 3, COL.sumi, 2);                                         /* くち */
     } },
-    { id: 'katatsumuri', name: 'かたつむり', draw: function (ctx) {
+    { id: 'katatsumuri', name: 'かたつむり', sym: 4, draw: function (ctx, twist) {
       ellipse(ctx, 6, 18, 30, 8, COL.murasaki, COL.sumi, 2);                        /* からだ */
       circle(ctx, 26, 8, 9, COL.murasaki, COL.sumi, 2);                             /* あたま */
-      line(ctx, 29, 0, 33, -12, COL.sumi, 2.5); circle(ctx, 33, -13, 2.5, COL.sumi); /* つの */
-      line(ctx, 23, 0, 21, -10, COL.sumi, 2.5); circle(ctx, 21, -11, 2.5, COL.sumi);
+      feat(ctx, twist, function () {
+        line(ctx, 29, 0, 33, -12, COL.sumi, 2.5); circle(ctx, 33, -13, 2.5, COL.sumi); /* つの（twist＝下向き） */
+        line(ctx, 23, 0, 21, -10, COL.sumi, 2.5); circle(ctx, 21, -11, 2.5, COL.sumi);
+      });
       circle(ctx, -10, -2, 20, COL.daidai, COL.sumi, 2);                            /* から */
       ctx.beginPath(); ctx.strokeStyle = COL.sumi; ctx.lineWidth = 2.5;
       ctx.arc(-10, -2, 12, 0, Math.PI * 1.5); ctx.stroke();
       ctx.beginPath(); ctx.arc(-8, -4, 5, 0, Math.PI * 1.5); ctx.stroke();           /* うずまき */
       circle(ctx, 29, 6, 1.8, COL.sumi);                                            /* め */
     } },
-    { id: 'tentoumushi', name: 'てんとうむし', draw: function (ctx) {
+    { id: 'tentoumushi', name: 'てんとうむし', sym: 4, draw: function (ctx, twist) {
       line(ctx, -16, -6, -30, -14, COL.sumi, 2.5); line(ctx, -20, 6, -34, 8, COL.sumi, 2.5);
       line(ctx, -14, 18, -26, 28, COL.sumi, 2.5); line(ctx, 16, -6, 30, -14, COL.sumi, 2.5);
       line(ctx, 20, 6, 34, 8, COL.sumi, 2.5); line(ctx, 14, 18, 26, 28, COL.sumi, 2.5); /* あし */
       circle(ctx, 0, 4, 23, COL.daidai, COL.sumi, 2);                               /* からだ */
       circle(ctx, 0, -18, 10, COL.sumi);                                            /* あたま */
       line(ctx, 0, -10, 0, 27, COL.sumi, 2);                                        /* まん中の せん */
-      circle(ctx, -11, -2, 5.5, COL.sumi); circle(ctx, 10, 9, 5.5, COL.sumi); circle(ctx, -8, 16, 4.5, COL.sumi); /* もよう（左2・右1） */
+      feat(ctx, twist, function () {
+        ctx.translate(0, 4); circle(ctx, -11, -6, 5.5, COL.sumi); circle(ctx, 10, 5, 5.5, COL.sumi); circle(ctx, -8, 12, 4.5, COL.sumi); /* もよう（左2・右1。twist＝上下が入れかわる） */
+      });
     } },
-    { id: 'kotori', name: 'ことり', draw: function (ctx) {
-      poly(ctx, [[-16, 2], [-38, -10], [-34, 8]], COL.mizu, COL.sumi, 2);           /* お */
+    { id: 'kotori', name: 'ことり', sym: 4, draw: function (ctx, twist) {
+      feat(ctx, twist, function () { poly(ctx, [[-16, 2], [-38, -10], [-34, 8]], COL.mizu, COL.sumi, 2); }); /* お（twist＝下向き） */
       line(ctx, 4, 18, 4, 30, COL.sumi, 2.5); line(ctx, -6, 18, -6, 30, COL.sumi, 2.5); /* あし */
       ellipse(ctx, 0, 4, 21, 15, COL.mizu, COL.sumi, 2);                            /* からだ */
       ellipse(ctx, -3, 3, 12, 6, COL.ao, COL.sumi, 1.5);                            /* はね */
@@ -430,27 +512,31 @@
       poly(ctx, [[26, -15], [38, -11], [26, -7]], COL.daidai, COL.sumi, 1.5);       /* くちばし */
       circle(ctx, 19, -15, 2.2, COL.sumi);                                          /* め */
     } },
-    { id: 'imomushi', name: 'いもむし', draw: function (ctx) {
+    { id: 'imomushi', name: 'いもむし', sym: 4, draw: function (ctx, twist) {
       circle(ctx, -28, 10, 9, COL.ryokuao, COL.sumi, 2);
       circle(ctx, -13, 7, 10, COL.ryokuao, COL.sumi, 2);
       circle(ctx, 3, 5, 11, COL.ryokuao, COL.sumi, 2);                             /* からだ（右ほど大きい） */
-      line(ctx, 25, -10, 30, -24, COL.sumi, 2.5); circle(ctx, 30, -25, 2.5, COL.sumi);
-      line(ctx, 18, -10, 16, -22, COL.sumi, 2.5); circle(ctx, 16, -23, 2.5, COL.sumi); /* つの */
+      feat(ctx, twist, function () {
+        line(ctx, 25, -10, 30, -24, COL.sumi, 2.5); circle(ctx, 30, -25, 2.5, COL.sumi);
+        line(ctx, 18, -10, 16, -22, COL.sumi, 2.5); circle(ctx, 16, -23, 2.5, COL.sumi); /* つの（twist＝下向き） */
+      });
       circle(ctx, 22, 1, 13, COL.ryokuao, COL.sumi, 2);                             /* あたま */
       circle(ctx, 27, -3, 2.5, COL.sumi);                                           /* め */
       line(ctx, 27, 5, 31, 7, COL.sumi, 2);                                         /* くち */
     } },
-    { id: 'zou', name: 'ぞう', draw: function (ctx) {
-      line(ctx, 28, 0, 38, -10, COL.sumi, 3);                                       /* しっぽ */
+    { id: 'zou', name: 'ぞう', sym: 4, draw: function (ctx, twist) {
+      feat(ctx, twist, function () { line(ctx, 28, 0, 38, -10, COL.sumi, 3); });     /* しっぽ（twist＝下向き） */
       ctx.fillStyle = COL.murasaki; ctx.strokeStyle = COL.sumi; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.rect(-6, 14, 9, 16); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.rect(14, 14, 9, 16); ctx.fill(); ctx.stroke();            /* あし */
       ellipse(ctx, 6, 4, 25, 17, COL.murasaki, COL.sumi, 2);                        /* からだ */
-      ctx.beginPath(); ctx.moveTo(-28, 2); ctx.quadraticCurveTo(-40, 10, -34, 28);
-      ctx.strokeStyle = COL.murasaki; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-28, 2); ctx.quadraticCurveTo(-40, 10, -34, 28);
-      ctx.strokeStyle = COL.sumi; ctx.lineWidth = 11; ctx.globalCompositeOperation = 'destination-over'; ctx.stroke();
-      ctx.globalCompositeOperation = 'source-over';                                 /* はな（ふちどり） */
+      feat(ctx, twist, function () {
+        ctx.beginPath(); ctx.moveTo(-28, 2); ctx.quadraticCurveTo(-40, 10, -34, 28);
+        ctx.strokeStyle = COL.murasaki; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-28, 2); ctx.quadraticCurveTo(-40, 10, -34, 28);
+        ctx.strokeStyle = COL.sumi; ctx.lineWidth = 11; ctx.globalCompositeOperation = 'destination-over'; ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';                               /* はな（twist＝上へ あがる） */
+      });
       circle(ctx, -20, -6, 14, COL.murasaki, COL.sumi, 2);                          /* あたま */
       ellipse(ctx, -12, -4, 6, 9, COL.mizu, COL.sumi, 1.5);                         /* みみ */
       circle(ctx, -25, -10, 2.2, COL.sumi);                                         /* め */
@@ -458,48 +544,86 @@
   ];
   KZ.PICS = PICS;
 
-  /* 過去問の かたち（2026年度の 回転図形＝2×2の ますに 4つの絵・しるし●の絵が どう見えるかを 4つから えらぶ）。
-     asked=true の かたちは 4回の回転が 全部ちがう（きく側の 絵に 使える）。false は まわりの 絵にだけ 使う。 */
+  /* 過去問の かたち（2026年度の 回転図形 問題14-1・14-2＝2×2の ますに 4つの絵）。
+     sym＝回して 見分けられる 向きの数（4＝90度ごとに ちがう／2＝180度で 同じ／1＝どう回しても 同じ）。
+     asked=true（sym 4）の かたちは 問題14-1型で きく側の 絵に 使える。sym 1・2 は まわりの 絵にだけ 使う。 */
   var SHAPES = [
-    { id: 'kagi', name: 'まがった ぼう', asked: true, draw: function (ctx) {
+    { id: 'sankakuS', name: 'さんかく', asked: true, sym: 4, draw: function (ctx) {
+      poly(ctx, [[-28, -26], [30, 0], [-28, 26]], COL.shiro, COL.sumi, 3);          /* 右むきの さんかく */
+    } },
+    { id: 'gokaku', name: 'ごかくけい', asked: true, sym: 4, draw: function (ctx) {
+      var i, p = [];
+      for (i = 0; i < 5; i++) { p.push([30 * Math.cos(-Math.PI / 2 + i * Math.PI * 2 / 5), 30 * Math.sin(-Math.PI / 2 + i * Math.PI * 2 / 5)]); }
+      poly(ctx, p, COL.shiro, COL.sumi, 3);                                         /* とがりが 上 */
+    } },
+    { id: 'tee', name: 'ティー', asked: true, sym: 4, draw: function (ctx) {
+      poly(ctx, [[-32, -26], [32, -26], [32, -8], [9, -8], [9, 30], [-9, 30], [-9, -8], [-32, -8]], COL.shiro, COL.sumi, 3);
+    } },
+    { id: 'hata', name: 'はた', asked: true, sym: 4, draw: function (ctx) {
+      poly(ctx, [[-28, -30], [28, -30], [28, 30], [0, 10], [-28, 30]], COL.shiro, COL.sumi, 3); /* きりこみが 下 */
+    } },
+    { id: 'eru', name: 'エル', asked: true, sym: 4, draw: function (ctx) {
+      poly(ctx, [[-26, -30], [-8, -30], [-8, 12], [30, 12], [30, 30], [-26, 30]], COL.shiro, COL.sumi, 3);
+    } },
+    { id: 'fukku', name: 'フック', asked: true, sym: 4, draw: function (ctx) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.arc(2, -4, 20, Math.PI * 0.15, Math.PI * 1.6); ctx.lineTo(-6, 30);
+      ctx.strokeStyle = COL.sumi; ctx.lineWidth = 16; ctx.stroke();
+      ctx.beginPath(); ctx.arc(2, -4, 20, Math.PI * 0.15, Math.PI * 1.6); ctx.lineTo(-6, 30);
+      ctx.strokeStyle = COL.shiro; ctx.lineWidth = 10; ctx.stroke();
+    } },
+    { id: 'daiya', name: 'ひしがた', asked: false, sym: 1, draw: function (ctx) {
+      poly(ctx, [[0, -32], [32, 0], [0, 32], [-32, 0]], COL.shiro, COL.sumi, 3);
+    } },
+    { id: 'daikei', name: 'だいけい', asked: true, sym: 4, draw: function (ctx) {
+      poly(ctx, [[-18, -22], [18, -22], [32, 22], [-32, 22]], COL.shiro, COL.sumi, 3);
+    } },
+    { id: 'marusan', name: 'まるに さんかく', asked: true, sym: 4, draw: function (ctx) {
+      circle(ctx, 0, 0, 30, COL.shiro, COL.sumi, 3);
+      poly(ctx, [[0, -16], [15, 10], [-15, 10]], COL.shiro, COL.sumi, 2.5);
+    } },
+    { id: 'yaue', name: 'うえ やじるし', asked: true, sym: 4, draw: function (ctx) {
+      poly(ctx, [[0, -34], [30, -2], [12, -2], [12, 32], [-12, 32], [-12, -2], [-30, -2]], COL.shiro, COL.sumi, 3);
+    } },
+    { id: 'kagi', name: 'まがった ぼう', asked: true, sym: 4, draw: function (ctx) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.beginPath(); ctx.moveTo(-26, 28); ctx.lineTo(-6, -12); ctx.lineTo(32, -22);
       ctx.strokeStyle = COL.sumi; ctx.lineWidth = 18; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-26, 28); ctx.lineTo(-6, -12); ctx.lineTo(32, -22);
       ctx.strokeStyle = COL.ao; ctx.lineWidth = 12; ctx.stroke();
     } },
-    { id: 'yajirushi', name: 'やじるし', asked: true, draw: function (ctx) {
+    { id: 'yajirushi', name: 'やじるし', asked: true, sym: 4, draw: function (ctx) {
       poly(ctx, [[-30, 14], [8, -24], [-2, -34], [34, -34], [34, 2], [24, -8], [-14, 30]], COL.shiro, COL.sumi, 3);
     } },
-    { id: 'kuroba', name: 'クローバー', asked: true, draw: function (ctx) {
+    { id: 'kuroba', name: 'クローバー', asked: true, sym: 4, draw: function (ctx) {
       var i, p = [[-15, -15], [15, -15], [-15, 15], [15, 15]];
       for (i = 0; i < 4; i++) { circle(ctx, p[i][0], p[i][1], 16, COL.shiro, COL.sumi, 2.5); }
       circle(ctx, -15, -15, 7.5, COL.sumi);
     } },
-    { id: 'masu', name: 'ますと てん', asked: true, draw: function (ctx) {
+    { id: 'masu', name: 'ますと てん', asked: true, sym: 4, draw: function (ctx) {
       var i;
       ctx.strokeStyle = COL.sumi; ctx.lineWidth = 2.5; ctx.fillStyle = COL.shiro;
       ctx.beginPath(); ctx.rect(-30, -30, 60, 60); ctx.fill(); ctx.stroke();
       for (i = 1; i < 3; i++) { line(ctx, -30 + 20 * i, -30, -30 + 20 * i, 30, COL.sumi, 2); line(ctx, -30, -30 + 20 * i, 30, -30 + 20 * i, COL.sumi, 2); }
       circle(ctx, 0, -20, 7, COL.sumi);
     } },
-    { id: 'wai', name: 'えだ', asked: true, draw: function (ctx) {
+    { id: 'wai', name: 'えだ', asked: true, sym: 4, draw: function (ctx) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, 34); ctx.moveTo(0, 6); ctx.lineTo(-26, -24); ctx.moveTo(0, 6); ctx.lineTo(26, -24);
       ctx.strokeStyle = COL.sumi; ctx.lineWidth = 16; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, 34); ctx.moveTo(0, 6); ctx.lineTo(-26, -24); ctx.moveTo(0, 6); ctx.lineTo(26, -24);
       ctx.strokeStyle = COL.daidai; ctx.lineWidth = 10; ctx.stroke();
     } },
-    { id: 'kagiana', name: 'かぎあな', asked: true, draw: function (ctx) {
+    { id: 'kagiana', name: 'かぎあな', asked: true, sym: 4, draw: function (ctx) {
       ctx.fillStyle = COL.shiro; ctx.strokeStyle = COL.sumi; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.rect(-10, 2, 20, 32); ctx.fill(); ctx.stroke();
       circle(ctx, 0, -10, 19, COL.shiro, COL.sumi, 2.5);
       ctx.fillStyle = COL.shiro; ctx.beginPath(); ctx.rect(-8.5, 2, 17, 8); ctx.fill();
     } },
-    { id: 'hachi', name: 'ひょうたん', asked: false, draw: function (ctx) {
+    { id: 'hachi', name: 'ひょうたん', asked: false, sym: 2, draw: function (ctx) {
       circle(ctx, 0, -15, 16, COL.shiro, COL.sumi, 2.5); circle(ctx, 0, 15, 16, COL.shiro, COL.sumi, 2.5);
     } },
-    { id: 'juji', name: 'じゅうじ', asked: false, draw: function (ctx) {
+    { id: 'juji', name: 'じゅうじ', asked: false, sym: 1, draw: function (ctx) {
       poly(ctx, [[-8, -32], [8, -32], [8, -8], [32, -8], [32, 8], [8, 8], [8, 32], [-8, 32], [-8, 8], [-32, 8], [-32, -8], [-8, -8]], COL.shiro, COL.sumi, 2.5);
     } }
   ];
@@ -522,6 +646,15 @@
   KZ.ASKABLE = ASKABLE;
   var ALL_IDS = [];
   (function () { var k; for (k in PIC_BY_ID) { if (PIC_BY_ID.hasOwnProperty(k)) { ALL_IDS.push(k); } } })();
+  /* 本番型（問題14-2）の カードに使う かたち＝過去問と同じ 線の絵だけ（いきものは使わない） */
+  var CARD_IDS = [], CARD_IDS4 = [];
+  (function () {
+    var i;
+    for (i = 0; i < SHAPES.length; i++) { CARD_IDS.push(SHAPES[i].id); if (SHAPES[i].sym === 4) { CARD_IDS4.push(SHAPES[i].id); } }
+  })();
+  KZ.CARD_IDS = CARD_IDS;
+  function symOf(id) { return PIC_BY_ID[id].sym || 4; }
+  KZ.symOf = symOf;
 
   /* ================= しるしを 描く ================= */
   function drawMark(ctx, m, o, s) {
@@ -601,7 +734,7 @@
         ctx.save();
         ctx.translate(-inner / 2 + cs * (c + 0.5), -inner / 2 + cs * (r + 0.5));
         ctx.scale(scale, scale); ctx.lineJoin = 'round';
-        PIC_BY_ID[view.base.cells[i]].draw(ctx);
+        PIC_BY_ID[view.base.cells[i]].draw(ctx, false);
         ctx.restore();
         if (i === view.base.mark) {
           ctx.save();
@@ -613,13 +746,28 @@
         }
       }
       ctx.restore();
+    } else if (view.base.kind === 'cardview') {
+      /* 本番型＝4つの ますに 線の絵。各絵は 自分の向き o で 描く（カード全体の回転は cells に 焼き込み済み） */
+      cs = inner / 2; scale = cs / 100 * 0.86;
+      ctx.strokeStyle = COL.sumi; ctx.lineWidth = Math.max(2, size * 0.015);
+      ctx.strokeRect(-inner / 2, -inner / 2, inner, inner);
+      ctx.beginPath(); ctx.moveTo(0, -inner / 2); ctx.lineTo(0, inner / 2); ctx.moveTo(-inner / 2, 0); ctx.lineTo(inner / 2, 0); ctx.stroke();
+      for (i = 0; i < 4; i++) {
+        r = Math.floor(i / 2); c = i % 2;
+        ctx.save();
+        ctx.translate(-inner / 2 + cs * (c + 0.5), -inner / 2 + cs * (r + 0.5));
+        ctx.rotate(view.base.cells[i].o * Math.PI / 2);
+        ctx.scale(scale, scale); ctx.lineJoin = 'round';
+        PIC_BY_ID[view.base.cells[i].id].draw(ctx, false);
+        ctx.restore();
+      }
     } else {
       scale = inner / 100;
       ctx.save();
       ctx.rotate(view.rot * Math.PI / 2);
       ctx.scale(view.mirror ? -scale : scale, scale);
       ctx.lineJoin = 'round';
-      PIC_BY_ID[view.base.id].draw(ctx);
+      PIC_BY_ID[view.base.id].draw(ctx, !!view.twist);
       ctx.restore();
     }
     ctx.restore();
@@ -654,10 +802,14 @@
      level 1＝やさしい：みぎに1かい だけ。えらぶのは 3まい。
      level 2＝ふつう：みぎ1・みぎ2・ひだり1。えらぶのは 4まい（鏡の かたちも まざる）。
      level 3＝むずかしい：みぎ1〜3・ひだり1〜2 ＋「なんかい まわした？」。 */
+  /* 出る問題の 型と 割合
+     やさしい＝基本型（3まい）50%・14-1型（●の絵の向き）50%。みぎに1かい だけ。
+     ふつう＝本番型（14-2＝カード全体・4まい・ちがう回し方1つ＋1ますちがい1つ＋位置だけ1つ）50%・基本型（鏡と「一部だけ ちがう」絵）50%。
+     むずかしい＝本番型（4まい 全部が「1〜2ますだけ ちがう」ひっかけ）60%・基本型 25%・回数型 15%。みぎ1〜3・ひだり1〜2。 */
   var LEVELS = {
-    1: { name: 'やさしい', moves: [['migi', 1]], choices: 3, countQ: 0, tokaQ: 0.5 },
-    2: { name: 'ふつう', moves: [['migi', 1], ['migi', 2], ['hidari', 1]], choices: 4, countQ: 0, tokaQ: 0.4 },
-    3: { name: 'むずかしい', moves: [['migi', 1], ['migi', 2], ['migi', 3], ['hidari', 1], ['hidari', 2]], choices: 4, countQ: 0.2, tokaQ: 0.4 }
+    1: { name: 'やさしい', moves: [['migi', 1]], choices: 3, countQ: 0, tokaQ: 0.5, cardQ: 0 },
+    2: { name: 'ふつう', moves: [['migi', 1], ['migi', 2], ['hidari', 1]], choices: 4, countQ: 0, tokaQ: 0, cardQ: 0.5 },
+    3: { name: 'むずかしい', moves: [['migi', 1], ['migi', 2], ['migi', 3], ['hidari', 1], ['hidari', 2]], choices: 4, countQ: 0.15, tokaQ: 0, cardQ: 0.6 }
   };
   KZ.LEVELS = LEVELS;
 
@@ -681,10 +833,75 @@
   }
   KZ.makeCard = makeCard;
 
+  /* 本番型（14-2）の 1問を作る。えらびしは カード全体 4まい */
+  function makeCardQuestion(level) {
+    var lv = LEVELS[level], tries, base, mv, rot, correct, cands, seen, s, i, q, k, d, kinds, pool;
+    for (tries = 0; tries < 60; tries++) {
+      base = makeCardBase();
+      mv = pick(lv.moves);
+      rot = rotOf(mv[0], mv[1]);
+      correct = rotateCard(base, rot);
+      seen = {}; seen[cardSig(correct)] = true;
+      cands = [];
+      /* まちがいの 候補を 多めに作って、正解と 同じ見た目のものを 捨てる */
+      pool = [];
+      if (level === 2) {
+        k = (rot + 1 + ri(3)) % 4; pool.push(['rot', rotateCard(base, k)]);
+        pool.push(['one', cardOneOff(correct)]);
+        pool.push(['slide', cardSlide(base, rot)]);
+        pool.push(['one', cardOneOff(correct)]);
+        pool.push(['swap', cardSwap(correct)]);
+      } else {
+        pool.push(['one', cardOneOff(correct)]);
+        pool.push(['one', cardOneOff(correct)]);
+        pool.push(['slide', cardSlide(base, rot)]);
+        pool.push(['swap', cardSwap(correct)]);
+        pool.push(['one', cardOneOff(correct)]);
+        k = (rot + 1 + ri(3)) % 4; pool.push(['rot', rotateCard(base, k)]);
+      }
+      kinds = [];
+      for (i = 0; i < pool.length && cands.length < 3; i++) {
+        d = pool[i][1];
+        if (!d) { continue; }
+        s = cardSig(d);
+        if (seen[s]) { continue; }
+        /* むずかしい は「ほとんど同じ」だけを 使う（ちがいは 2ます以内。rot は 最後の 保険） */
+        if (level === 3 && pool[i][0] !== 'rot' && cardDiffCount(d, correct) > 2) { continue; }
+        seen[s] = true;
+        cands.push({ base: d, mirror: 0, rot: 0, kind: pool[i][0] });
+        kinds.push(pool[i][0]);
+      }
+      if (cands.length < 3) { continue; }
+      cands = shuffle([{ base: correct, mirror: 0, rot: 0, kind: 'ok' }].concat(cands));
+      q = { type: 'card', level: level, base: base, dir: mv[0], times: mv[1], correct: { base: correct, mirror: 0, rot: 0 }, choices: cands, answerIndex: -1, wording: 'yajirushi' };
+      for (i = 0; i < cands.length; i++) { if (cands[i].kind === 'ok') { q.answerIndex = i; } }
+      return q;
+    }
+    return null;
+  }
+  KZ.makeCardQuestion = makeCardQuestion;
+
+  /* 基本型の「ほとんど同じ」まちがい＝絵なら 一部だけ 上下が ちがう（twist）。ますなら 1つの しるしの向きだけ ちがう */
+  function subtleOf(correct) {
+    var fig, idx = [], i, p, cell;
+    if (correct.base.kind === 'pic') { return { base: correct.base, mirror: 0, rot: correct.rot, twist: 1 }; }
+    fig = transformGrid(correct.base, correct.mirror, correct.rot);
+    for (i = 0; i < fig.cells.length; i++) { if (MARKS[fig.cells[i].m].period > 1) { idx.push(i); } }
+    if (!idx.length) { return null; }
+    p = pick(idx); cell = fig.cells[p];
+    cell.o = (cell.o + 1 + ri(MARKS[cell.m].period - 1)) % MARKS[cell.m].period;
+    return { base: fig, mirror: 0, rot: 0 };
+  }
+
   function makeQuestion(level) {
-    var lv = LEVELS[level], base, mv, rot, correct, q, cands, i, m, k, v, s, seen, correctSig, rots, mirrors, chosen, wording, roll;
+    var lv = LEVELS[level], base, mv, rot, correct, q, cands, i, m, k, v, s, seen, correctSig, rots, mirrors, chosen, wording, roll, sub;
     roll = rnd();
-    if (roll < lv.tokaQ) {
+    if (roll < lv.cardQ) {
+      q = makeCardQuestion(level);
+      if (q) { return q; }
+      roll = lv.cardQ;   /* 作れなければ 基本型へ */
+    }
+    if (roll < lv.cardQ + lv.tokaQ) {
       /* 過去問型＝カードを まわしたとき、●の絵は どう見える？（えらぶのは その絵の 4つの向き） */
       base = makeCard();
       mv = pick(lv.moves);
@@ -697,7 +914,7 @@
       return q;
     }
     base = makeBase(level);
-    if (roll < lv.tokaQ + lv.countQ) {
+    if (roll < lv.cardQ + lv.tokaQ + lv.countQ) {
       /* なんかい まわした？（みぎまわり・1〜3かい）*/
       rot = 1 + ri(3);
       return {
@@ -728,8 +945,11 @@
       /* 鏡の かたち（正解を ひっくり返したもの）を 1つ */
       chosen.push(pickMirror(mirrors, rot));
     } else {
+      /* ふつう・むずかしい＝「ほとんど同じ」1まい（一部だけ ちがう）＋鏡 1まい＋ちがう回し方 1まい */
       rots = shuffle(rots);
-      chosen.push(rots[0]); chosen.push(rots[1]);
+      sub = subtleOf(correct);
+      if (sub && !seen[viewSig(sub)]) { seen[viewSig(sub)] = true; chosen.push(sub); } else { chosen.push(rots[1]); }
+      chosen.push(rots[0]);
       chosen.push(pickMirror(mirrors, rot));
     }
     cands = shuffle([correct].concat(chosen));
@@ -756,6 +976,7 @@
     var t = q.times + 'かい';
     if (q.type === 'count') { return 'なんかい まわしたかな？'; }
     if (q.type === 'toka') { return 'やじるしの ほうに ' + t + ' まわすと、●の えは どれ？'; }
+    if (q.type === 'card') { return 'やじるしの ほうに ' + t + ' まわすと、どれに なる？'; }
     if (q.wording === 'yajirushi') { return 'やじるしの ほうに ' + t + ' まわすと どれ？'; }
     return (q.dir === 'migi' ? 'みぎに ' : 'ひだりに ') + t + ' まわすと どれ？';
   }
@@ -902,12 +1123,40 @@
     b = gridSig(transformGrid(transformGrid(base, 1, 0), 0, 3));
     ok(a === b, 'T1 鏡と回転の 入れかえ');
 
+    /* T1b 本番型の カードの きまり */
+    base = { kind: 'cardview', cells: [{ id: 'tee', o: 0 }, { id: 'hata', o: 1 }, { id: 'eru', o: 2 }, { id: 'daiya', o: 3 }] };
+    ok(cardSig(rotateCard(base, 4)) === cardSig(base), 'T1b カードは 4回で もどる');
+    fig = rotateCard(base, 1);
+    ok(fig.cells[1].id === 'tee' && fig.cells[1].o === 1 && fig.cells[3].id === 'hata' && fig.cells[0].id === 'eru' && fig.cells[2].id === 'daiya', 'T1b 左上→右上→右下→左下');
+    ok(cardSig(rotateCard(base, 1)) !== cardSig(base), 'T1b 1回で 見た目が変わる');
+    ok(cardDiffCount(base, base) === 0 && cardDiffCount(base, cardSwap(base)) === 2, 'T1b ちがう ますの数');
+    ok(cardSig({ kind: 'cardview', cells: [{ id: 'daiya', o: 0 }, { id: 'tee', o: 0 }, { id: 'eru', o: 0 }, { id: 'hata', o: 0 }] }) === cardSig({ kind: 'cardview', cells: [{ id: 'daiya', o: 2 }, { id: 'tee', o: 0 }, { id: 'eru', o: 0 }, { id: 'hata', o: 0 }] }), 'T1b ひしがたは 向きを 区別しない');
+
     /* T2 もんだい 各レベル 600問 */
     for (lvl = 1; lvl <= 3; lvl++) {
-      cnt = { turn: 0, count: 0, toka: 0 };
+      cnt = { turn: 0, count: 0, toka: 0, card: 0 };
       for (i = 0; i < 600; i++) {
         q = makeQuestion(lvl);
         cnt[q.type]++;
+        if (q.type === 'card') {
+          ok(q.choices.length === 4, 'T2 card 4まい lv' + lvl);
+          sigs = {}; total = 0;
+          for (j = 0; j < q.choices.length; j++) { s = cardSig(q.choices[j].base); if (sigs[s]) { total++; } sigs[s] = true; }
+          ok(total === 0, 'T2 card 同じ見た目なし lv' + lvl);
+          ok(q.answerIndex >= 0 && cardSig(q.choices[q.answerIndex].base) === cardSig(rotateCard(q.base, rotOf(q.dir, q.times))), 'T2 card 正解＝指示どおり lv' + lvl);
+          for (j = 0; j < q.choices.length; j++) {
+            if (j === q.answerIndex) { continue; }
+            ok(cardDiffCount(q.choices[j].base, q.correct.base) >= 1, 'T2 card まちがいは 正解と ちがう lv' + lvl);
+            if (lvl === 3 && q.choices[j].kind !== 'rot') { ok(cardDiffCount(q.choices[j].base, q.correct.base) <= 2, 'T2 card むずかしい は 2ます以内の ちがい（' + q.choices[j].kind + '）'); }
+          }
+          sigs = {}; total = 0;
+          for (j = 0; j < 4; j++) { if (sigs[q.base.cells[j].id]) { total++; } sigs[q.base.cells[j].id] = true; }
+          ok(total === 0, 'T2 card 4つの絵は 全部ちがう');
+          total = 0; for (j = 0; j < 4; j++) { if (symOf(q.base.cells[j].id) === 4) { total++; } }
+          ok(total >= 3, 'T2 card 向きが分かる絵が 3つ以上');
+          if (lvl === 3) { total = 0; for (j = 0; j < q.choices.length; j++) { if (q.choices[j].kind === 'one') { total++; } } ok(total >= 1, 'T2 card むずかしい に 1ますちがい あり'); }
+          continue;
+        }
         if (q.type === 'toka') {
           ok(q.choices.length === 4, 'T2 toka 4まい lv' + lvl);
           sigs = {}; total = 0;
@@ -944,11 +1193,18 @@
         total = 0;
         for (j = 0; j < q.choices.length; j++) { if (q.choices[j].mirror === 1) { total++; } }
         ok(total === 1, 'T2 鏡の形が1枚 lv' + lvl + ' =' + total);
+        /* ふつう・むずかしい の絵は「一部だけ ちがう」1枚 */
+        if (lvl >= 2 && q.base.kind === 'pic') {
+          total = 0;
+          for (j = 0; j < q.choices.length; j++) { if (q.choices[j].twist) { total++; } }
+          ok(total === 1, 'T2 一部だけちがう絵が1枚 lv' + lvl);
+        }
       }
-      if (lvl === 3) { ok(cnt.count > 60 && cnt.count < 190, 'T2 count の割合 ' + cnt.count + '/600'); }
+      if (lvl === 3) { ok(cnt.count > 40 && cnt.count < 150, 'T2 count の割合 ' + cnt.count + '/600'); }
       else { ok(cnt.count === 0, 'T2 count なし lv' + lvl); }
-      ok(cnt.toka > 150 && cnt.toka < 400, 'T2 toka の割合 lv' + lvl + ' ' + cnt.toka + '/600');
-      ok(cnt.turn > 150, 'T2 turn の割合 lv' + lvl + ' ' + cnt.turn + '/600');
+      if (lvl === 1) { ok(cnt.toka > 200 && cnt.toka < 400 && cnt.card === 0, 'T2 やさしい は toka あり card なし ' + cnt.toka); }
+      else { ok(cnt.toka === 0 && cnt.card > 200, 'T2 lv' + lvl + ' は card ' + cnt.card + '/600・toka ' + cnt.toka); }
+      ok(cnt.turn > 100, 'T2 turn の割合 lv' + lvl + ' ' + cnt.turn + '/600');
     }
 
     /* T3 いきものの絵＝8とおりが 画素で 見分けられる（64px四方で 1.5%＝61画素以上ちがう。
@@ -958,17 +1214,20 @@
       ctx = canvas.getContext('2d');
       for (i = 0; i < PICS.length; i++) {
         variants = [];
-        for (m = 0; m < 2; m++) {
+        for (m = 0; m < 4; m++) {      /* 0=そのまま 1=鏡 2=一部ちがう 3=鏡＋一部ちがう ＝ 16とおり */
           for (k = 0; k < 4; k++) {
             ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 64, 64);
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 64, 64);
             ctx.translate(32, 32);
-            drawView(ctx, 60, { base: { kind: 'pic', id: PICS[i].id }, mirror: m, rot: k }, 0);
+            drawView(ctx, 60, { base: { kind: 'pic', id: PICS[i].id }, mirror: m % 2, rot: k, twist: m >= 2 ? 1 : 0 }, 0);
             variants.push(ctx.getImageData(0, 0, 64, 64).data);
           }
         }
         for (a = 0; a < variants.length; a++) {
           for (b = a + 1; b < variants.length; b++) {
+            /* 「鏡」と「一部ちがう」が 両方ちがう組は 比べない＝えらびしに 同時に 出ない組
+               （一部を上下に ひっくり返した絵を さらに 上下に ひっくり返すと 元に近づくのは 当然） */
+            if ((Math.floor(a / 4) % 2) !== (Math.floor(b / 4) % 2) && (a >= 8) !== (b >= 8)) { continue; }
             diff = 0;
             for (px = 0; px < variants[a].length; px += 4) {
               if (Math.abs(variants[a][px] - variants[b][px]) + Math.abs(variants[a][px + 1] - variants[b][px + 1]) + Math.abs(variants[a][px + 2] - variants[b][px + 2]) > 60) { diff++; }
@@ -998,9 +1257,31 @@
             }
           }
         }
-        /* T3c カードが 描ける（4つの向き） */
+        /* T3c カードが 描ける（14-1型の 4つの向き・本番型の 4つの向き） */
         for (k = 0; k < 4; k++) {
           try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.translate(32, 32); drawView(ctx, 60, { base: makeCard(), mirror: 0, rot: k }, 0); ok(true, 'T3c'); } catch (e3) { ok(false, 'T3c card ' + e3); }
+          try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.translate(32, 32); drawView(ctx, 60, { base: rotateCard(makeCardBase(), k), mirror: 0, rot: 0 }, 0); ok(true, 'T3c'); } catch (e4) { ok(false, 'T3c cardview ' + e4); }
+        }
+        /* T3d 本番型の 1ますちがい は 画素でも ちがって見える（sym 4 の絵は 4つの向きが 全部ちがう） */
+        for (i = 0; i < SHAPES.length; i++) {
+          if (SHAPES[i].sym !== 4) { continue; }
+          variants = [];
+          for (k = 0; k < 4; k++) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 64, 64);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 64, 64);
+            ctx.translate(32, 32);
+            drawView(ctx, 60, { base: { kind: 'pic', id: SHAPES[i].id }, mirror: 0, rot: k }, 0);
+            variants.push(ctx.getImageData(0, 0, 64, 64).data);
+          }
+          for (a = 0; a < 4; a++) {
+            for (b = a + 1; b < 4; b++) {
+              diff = 0;
+              for (px = 0; px < variants[a].length; px += 4) {
+                if (Math.abs(variants[a][px] - variants[b][px]) + Math.abs(variants[a][px + 1] - variants[b][px + 1]) + Math.abs(variants[a][px + 2] - variants[b][px + 2]) > 60) { diff++; }
+              }
+              ok(diff > 64 * 64 * 0.015, 'T3d ' + SHAPES[i].id + ' 向き' + a + 'と' + b + ' の差=' + diff);
+            }
+          }
         }
         /* T4 しるし 全部 描ける */
         for (i = 0; i < MARK_NAMES.length; i++) {
@@ -1091,7 +1372,8 @@
     KZ.paintCanvas(el('q-before'), q.type === 'count' ? q.before : { base: q.base, mirror: 0, rot: 0 }, 0);
     el('q-after-wrap').style.display = isCount ? 'block' : 'none';
     if (isCount) { KZ.paintCanvas(el('q-after'), q.after, 0); }
-    setText(el('q-mark-note'), q.type === 'toka' ? '●が ついている えを よく見てね' : '');
+    setText(el('q-mark-note'), q.type === 'toka' ? '●が ついている えを よく見てね' : (q.type === 'card' ? 'えの ばしょと むきを ぜんぶ 見てね' : ''));
+    setText(el('q-count'), '');
     /* えらぶ */
     box.innerHTML = '';
     for (i = 0; i < q.choices.length; i++) {
@@ -1159,21 +1441,29 @@
     el('hint-btn').style.display = 'none';
   }
 
-  /* もとの かたちを 実際に まわして 見せる（紙を まわす 練習の かわり） */
+  /* もとの かたちを 実際に まわして 見せる（紙を まわす 練習の かわり）。
+     1回ぶん（90度）まわして 止まり、「1かい」と数えてから つぎの 1回へ＝「3かい まわる」の イメージを つける */
+  var TURN_MS = 650, PAUSE_MS = 550;
   function playTurnAnim(q, done) {
-    var canvas = el('q-before'), view, sign, total, start = null, dur;
+    var canvas = el('q-before'), view, sign, total, start = null, n = 0, cnt = el('q-count');
     if (q.type === 'count') { view = q.before; sign = 1; total = q.times; }
     else { view = { base: q.base, mirror: 0, rot: 0 }; sign = (q.dir === 'migi') ? 1 : -1; total = q.times; }
-    dur = 700 * total;
     stopAnim();
+    setText(cnt, '');
     function step(ts) {
       var t, ang;
       if (start === null) { start = ts; }
-      t = Math.min(1, (ts - start) / dur);
-      ang = sign * total * (Math.PI / 2) * easeInOut(t);
+      t = Math.min(1, (ts - start) / TURN_MS);
+      ang = sign * (n + easeInOut(t)) * (Math.PI / 2);
       KZ.paintCanvas(canvas, view, ang);
-      if (t < 1) { animTimer = requestFrame(step); }
-      else { animTimer = null; if (done) { done(); } }
+      if (t < 1) { animTimer = requestFrame(step); return; }
+      n++;
+      setText(cnt, n + 'かい' + (n === total ? '！' : ''));
+      if (n < total) {
+        animTimer = global.setTimeout(function () { start = null; animTimer = requestFrame(step); }, PAUSE_MS);
+      } else {
+        animTimer = null; if (done) { done(); }
+      }
     }
     animTimer = requestFrame(step);
   }

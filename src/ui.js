@@ -57,7 +57,8 @@
     KZ.paintCanvas(el('q-before'), q.type === 'count' ? q.before : { base: q.base, mirror: 0, rot: 0 }, 0);
     el('q-after-wrap').style.display = isCount ? 'block' : 'none';
     if (isCount) { KZ.paintCanvas(el('q-after'), q.after, 0); }
-    setText(el('q-mark-note'), q.type === 'toka' ? '●が ついている えを よく見てね' : '');
+    setText(el('q-mark-note'), q.type === 'toka' ? '●が ついている えを よく見てね' : (q.type === 'card' ? 'えの ばしょと むきを ぜんぶ 見てね' : ''));
+    setText(el('q-count'), '');
     /* えらぶ */
     box.innerHTML = '';
     for (i = 0; i < q.choices.length; i++) {
@@ -125,21 +126,29 @@
     el('hint-btn').style.display = 'none';
   }
 
-  /* もとの かたちを 実際に まわして 見せる（紙を まわす 練習の かわり） */
+  /* もとの かたちを 実際に まわして 見せる（紙を まわす 練習の かわり）。
+     1回ぶん（90度）まわして 止まり、「1かい」と数えてから つぎの 1回へ＝「3かい まわる」の イメージを つける */
+  var TURN_MS = 650, PAUSE_MS = 550;
   function playTurnAnim(q, done) {
-    var canvas = el('q-before'), view, sign, total, start = null, dur;
+    var canvas = el('q-before'), view, sign, total, start = null, n = 0, cnt = el('q-count');
     if (q.type === 'count') { view = q.before; sign = 1; total = q.times; }
     else { view = { base: q.base, mirror: 0, rot: 0 }; sign = (q.dir === 'migi') ? 1 : -1; total = q.times; }
-    dur = 700 * total;
     stopAnim();
+    setText(cnt, '');
     function step(ts) {
       var t, ang;
       if (start === null) { start = ts; }
-      t = Math.min(1, (ts - start) / dur);
-      ang = sign * total * (Math.PI / 2) * easeInOut(t);
+      t = Math.min(1, (ts - start) / TURN_MS);
+      ang = sign * (n + easeInOut(t)) * (Math.PI / 2);
       KZ.paintCanvas(canvas, view, ang);
-      if (t < 1) { animTimer = requestFrame(step); }
-      else { animTimer = null; if (done) { done(); } }
+      if (t < 1) { animTimer = requestFrame(step); return; }
+      n++;
+      setText(cnt, n + 'かい' + (n === total ? '！' : ''));
+      if (n < total) {
+        animTimer = global.setTimeout(function () { start = null; animTimer = requestFrame(step); }, PAUSE_MS);
+      } else {
+        animTimer = null; if (done) { done(); }
+      }
     }
     animTimer = requestFrame(step);
   }

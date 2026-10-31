@@ -82,6 +82,7 @@
   #q-arrow svg{display:block; margin:2px 0;}
   #q-after-wrap{margin-left:14px;}
   .qlabel{font-size:0.67rem; color:var(--ink-soft);}
+  .qcount{min-height:1.5em; font-size:1.08rem; font-weight:bold; color:var(--ao); text-align:center;}
   .choices{display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; -webkit-justify-content:center; justify-content:center; margin-top:6px;}
   .choice{width:46%; max-width:210px; margin:1.5%; background:var(--card); border:4px solid var(--line); border-radius:16px; padding:8px; text-align:center; cursor:pointer;}
   .choice canvas{width:100%; height:auto; display:block;}
@@ -146,9 +147,9 @@
     </div>
   </div>
   <div class="lv-list">
-    <button id="lv-1">やさしい <span>みぎに 1かい。3まいから えらぶ</span><span id="lv-sug-1"></span></button>
-    <button id="lv-2">ふつう <span>みぎ・ひだり・2かい。4まいから えらぶ</span><span id="lv-sug-2"></span></button>
-    <button id="lv-3">むずかしい <span>3かいまで。「なんかい まわした？」も でる</span><span id="lv-sug-3"></span></button>
+    <button id="lv-1">やさしい <span>みぎに 1かい。3まいから えらぶ。●の えの むき</span><span id="lv-sug-1"></span></button>
+    <button id="lv-2">ふつう <span>4つの えの カード ぜんたいを まわす。みぎ・ひだり・2かい</span><span id="lv-sug-2"></span></button>
+    <button id="lv-3">むずかしい <span>ほんばんの かたち。ほとんど おなじ 4まいから えらぶ。3かいまで</span><span id="lv-sug-3"></span></button>
   </div>
   <div class="home-foot">
     <button id="zukan-btn" class="sub"><span id="home-zukan-count">ずかん</span></button>
@@ -165,7 +166,7 @@
   <div class="qbox">
     <div id="q-text" class="qtext"></div>
     <div class="qrow">
-      <canvas id="q-before" width="210" height="210"></canvas>
+      <div><canvas id="q-before" width="210" height="210"></canvas><div id="q-count" class="qcount"></div></div>
       <div id="q-arrow"></div>
       <div id="q-after-wrap" style="display:none"><div class="qlabel">まわした あと</div><canvas id="q-after" width="210" height="210"></canvas></div>
     </div>
@@ -217,8 +218,9 @@
     <p>やさしいで 5問中4問が続いたら ふつうへ。</p>
     <h3>問題の形</h3>
     <ul>
-      <li>過去問型＝2×2の絵を回したとき、しるしの絵の向きを4つから選ぶ</li>
-      <li>基本型＝かたちを回した形を選ぶ（鏡の形もまざる）</li>
+      <li>本番型（2026年度 問題14-2）＝2×2の絵のカード全体を回した形を、ほとんど同じ4枚から選ぶ（1ますだけ向きが違う・位置だけ回って絵は回っていない・2ますが入れかわり）</li>
+      <li>しるし型（問題14-1）＝2×2の絵を回したとき、●の絵の向きを4つから選ぶ（やさしい だけ）</li>
+      <li>基本型＝かたちを回した形を選ぶ（鏡の形と、一部だけ上下が違う絵がまざる）</li>
       <li>回数型＝元の形と回した形を見て、何回回したか</li>
     </ul>
     <p><button id="reset-1" class="sub small">きろくを ぜんぶ けす</button> <button id="reset-2" class="small" style="display:none">ほんとうに けす</button></p>
