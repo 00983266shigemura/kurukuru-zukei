@@ -23,7 +23,9 @@ TMP="$ROOT/logs/selftest_dom.html"
 RESULT=$(/usr/bin/python3 "$ROOT/tools/read_selftest.py" "$TMP")
 print -r -- "$RESULT"
 print -r -- "$RESULT" | head -1 | grep -q '^PASS=[0-9]* FAIL=0$' || touch "$FAILFILE"
-print "== 6/6 iPad よこおきで 1がめんに おさまるか（1024×640・ぜんぶの がめん） =="
+print "== 6/6 iPad よこおきで 1がめんに おさまるか（1024×640・ぜんぶの がめん・無音の複製で） =="
+/usr/bin/python3 "$ROOT/tools/mkpage.py" --selftest || touch "$FAILFILE"
+/usr/bin/python3 "$ROOT/tools/mkpage.py" || touch "$FAILFILE"
 FIT=$("$CHROME" --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=20000 \
   --dump-dom "file://$ROOT/tools/fit_check.html#size=1024x640" 2>/dev/null | sed -n '/<pre id="out">/,/<\/pre>/p' | sed -e 's/<pre id="out">//' -e 's/<\/pre>//')
 print -r -- "$FIT"

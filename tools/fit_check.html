@@ -4,7 +4,8 @@
      #shot=〈なまえ〉 を つけると、そこで とめて スクリーンショット用に する -->
 <html lang="ja"><head><meta charset="utf-8"><title>fit check</title></head>
 <body style="margin:0">
-<iframe id="f" src="../index.html" style="width:1024px;height:640px;border:0;display:block"></iframe>
+<!-- 開くのは 無音の複製だけ（tools/mkpage.py が作る）。index.html を直接開かない＝試験で音を鳴らさない -->
+<iframe id="f" src="../logs/silent_index.html" style="width:1024px;height:640px;border:0;display:block"></iframe>
 <pre id="out"></pre>
 <script>
 var sz = location.hash.match(/size=(\d+)x(\d+)/) || [0, 1024, 640];
@@ -56,7 +57,10 @@ document.getElementById('f').onload = function () {
       meas('grown');
       put('MEASURED=' + n + ' MAXH=' + maxH + ' at ' + maxTag);
       put('ERRS=' + errs.length + (errs.length ? ' ' + errs.join(' | ') : ''));
-      put(fails.length === 0 && errs.length === 0 ? 'FIT=PASS' : 'FIT=FAIL ' + fails.slice(0, 12).join(' / '));
+      /* 無音の確かめ＝音の入口を作ろうとした回数が 0より大きく、音の しくみは作られていない（0回は素通り＝証拠にならない） */
+      var asked = w.__audioAsked, silent = (typeof asked === 'number' && asked > 0 && w.KZ.snd.ctx === null);
+      put('AUDIO asked=' + asked + ' ctx=' + (w.KZ.snd.ctx === null ? 'なし' : 'あり') + ' → ' + (silent ? '無音' : '無音でない'));
+      put(fails.length === 0 && errs.length === 0 && silent ? 'FIT=PASS' : 'FIT=FAIL ' + (silent ? '' : '無音化が効いていない ') + fails.slice(0, 12).join(' / '));
     }, 1500);
   } catch (e) {
     if (e === 'shot') { put('SHOT=' + shot); document.getElementById('out').style.display = 'none'; }

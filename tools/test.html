@@ -12,6 +12,12 @@
   body{background:var(--ground); color:var(--ink); font-family:monospace; font-size:0.6rem; white-space:pre;}
 </style>
 <script>
+  /* 無音化（自己点検でも音の入口は使わせない。tools/mkpage.py と同じ塞ぎ方） */
+  window.__audioAsked = 0;
+  (function () {
+    function blocked() { window.__audioAsked++; throw new Error('自己点検では音を出せません'); }
+    window.AudioContext = blocked; window.webkitAudioContext = blocked; window.OfflineAudioContext = blocked; window.Audio = blocked;
+  })();
   window.__loadErrors = [];
   window.onerror = function (msg, src, line, col) { window.__loadErrors.push('ERR ' + msg + ' @' + src + ':' + line + ':' + col); };
 </script>
