@@ -31,7 +31,48 @@ BAD = [
     ("padStart/padEnd", r"\.pad(Start|End)\s*\("),
     ("classList.replace", r"classList\.replace"),
     ("fetch(", r"(?<![\w.$])fetch\s*\("),
+    # 2026-10-31 追加＝CCメモリ old-ipad-webapp-constraints ①が名指しする「同世代で避けるもの」と、査読で素通りを実測した書き方。
+    # 本来は構文解析で既定拒否にしたいが、この Mac に ES5 の構文解析器が無い（node・esprima・jsc なし＝実測）ため、当面は列挙で止める。
+    ("展開・残余 ...", r"\.\.\."),
+    ("論理代入 ||= &&= ??=", r"(\|\||&&|\?\?)="),
+    (".at(", r"\.at\s*\("),
+    ("replaceAll", r"\.replaceAll\s*\("),
+    ("structuredClone", r"(?<![\w.$])structuredClone\b"),
+    ("Object.fromEntries", r"Object\.fromEntries"),
+    (".flat( .flatMap(", r"\.flat(Map)?\s*\("),
+    ("正規表現の後読み・名前つき (?<", r"\(\?<"),
+    ("数字の区切り 1_000", r"(?<![\w$])\d+_\d"),
+    ("async await", r"(?<![\w.$])(async\s+function|async\s*\(|await\s)"),
+    ("catch の省略 catch {", r"catch\s*\{"),
+    ("クラスの # 欄", r"(?<![\w$])#[A-Za-z_$]"),
 ]
+
+# 検査が効くかの確かめ用＝1行に1つ、止めるべき書き方を並べる（--selftest で全部見つかること）
+SELFTEST_BAD = [
+    "let a = 1;", "const b = 2;", "var f = (x) => x;", "var s = `t`;", "class A {}",
+    "var c = o?.p;", "var d = o ?? 1;", "var e = 2 ** 3;", "for (var k of l) {}", "var {x} = o;",
+    "Object.assign({}, o);", "Array.from(l);", "l.includes(1);", "Promise.resolve();", "Symbol('x');",
+    "s.startsWith('a');", "Number.isInteger(1);", "s.padStart(2);", "el.classList.replace('a', 'b');", "fetch('u');",
+    "var g = {...o};", "a ||= 1;", "l.at(-1);", "s.replaceAll('a', 'b');", "structuredClone(o);",
+    "Object.fromEntries(l);", "l.flat();", "var r = /(?<=a)b/;", "var n = 1_000;", "async function h() {}",
+    "try {} catch {}", "var p = this.#q;",
+]
+
+
+def selftest():
+    missed = []
+    for i, line in enumerate(SELFTEST_BAD):
+        src = strip_noise(line)
+        if not any(re.search(pat, src) for _, pat in BAD):
+            missed.append(line)
+    ok_src = strip_noise("var a = 1; function f(x) { return x + 1; } var s = 'let a => ...';")
+    false_hit = [name for name, pat in BAD if re.search(pat, ok_src)]
+    print("止めるべき書き方 %d件中 見逃し %d件・正しい書き方の誤検知 %d件" % (len(SELFTEST_BAD), len(missed), len(false_hit)))
+    for m in missed:
+        print("    見逃し: " + m)
+    for m in false_hit:
+        print("    誤検知: " + m)
+    return 0 if not missed and not false_hit else 1
 
 
 def strip_noise(src):
@@ -67,7 +108,17 @@ def main():
     for path in sys.argv[1:]:
         with open(path, encoding="utf-8") as fp:
             raw = fp.read()
-        src = strip_noise(raw)
+        if path.endswith(".html"):
+            # HTML は <script> の中だけを見る（CSS の #id などを拾わない）。行番号は保つ
+            keep = []
+            for m in re.finditer(r"<script[^>]*>(.*?)</script>", raw, flags=re.S):
+                keep.append((m.start(1), m.end(1)))
+            buf = list(re.sub(r"[^\n]", " ", raw))
+            for a, b in keep:
+                buf[a:b] = list(raw[a:b])
+            src = strip_noise("".join(buf))
+        else:
+            src = strip_noise(raw)
         hits = []
         for name, pat in BAD:
             for m in re.finditer(pat, src):
@@ -86,4 +137,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     main()
