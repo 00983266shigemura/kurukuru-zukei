@@ -20,14 +20,14 @@
     --ground:#f6f4ee; --card:#ffffff; --ink:#1b1b1b; --ink-soft:#55606b; --line:#d6d8dc;
     --ao:#0072B2; --daidai:#E69F00; --murasaki:#CC79A7; --mizu:#56B4E9; --ki:#F0E442; --ryokuao:#009E73;
     --ao-bg:#eaf3fa; --daidai-bg:#fdf3e2; --daidai-ink:#8a5a00; --nashi:#9aa5ae; --on-accent:#ffffff;
-    --on-mizu:#102030; --on-murasaki:#2a1020; --locked:#f1f1ef;
+    --on-mizu:#102030; --on-murasaki:#2a1020; --locked:#f1f1ef; --shu:#D55E00;
   }
   @media (prefers-color-scheme: dark){
     :root{
       --ground:#14191f; --card:#1c232b; --ink:#e8edf2; --ink-soft:#a7b4c0; --line:#38434e;
       --ao-bg:#12354a; --daidai-bg:#3d3010; --daidai-ink:#f2b544; --nashi:#5b6672; --locked:#232830;
       --ao:#0072B2; --daidai:#E69F00; --murasaki:#CC79A7; --mizu:#56B4E9; --ki:#F0E442; --ryokuao:#009E73;
-      --on-accent:#ffffff; --on-mizu:#102030; --on-murasaki:#2a1020;
+      --on-accent:#ffffff; --on-mizu:#102030; --on-murasaki:#2a1020; --shu:#D55E00;
     }
   }
   *{box-sizing:border-box;}
@@ -99,6 +99,13 @@
   .msg.warn{color:var(--daidai-ink); font-weight:bold;}
   .playfoot{text-align:center;}
   .playfoot button{margin:4px 8px;}
+  /* 制限時間＝へっていく ぼう。ながさ＋のこりの かず＋すくないと「！」の 3つで しらせる（いろだけに たよらない・あお→だいだい→しゅ） */
+  .tbarw{overflow:hidden; margin:6px auto 0; max-width:640px;}
+  .tbar{float:left; position:relative; width:60%; height:18px; margin-top:4px; background:var(--line); border-radius:9px; overflow:hidden;}
+  .tbar-fill{position:absolute; left:0; top:0; bottom:0; width:100%; background:var(--ao); -webkit-transition:width 0.25s linear; transition:width 0.25s linear;}
+  .tbar.mid .tbar-fill{background:var(--daidai);}
+  .tbar.low .tbar-fill{background:var(--shu);}
+  .tbar-txt{float:right; width:38%; white-space:nowrap; overflow:hidden; text-align:left; font-size:0.67rem; font-weight:bold; line-height:26px; color:var(--ink);}
   #next-btn{font-size:1.08rem; padding:14px 40px;}
 
   /* けっか */
@@ -133,6 +140,7 @@
     #scr-play .choices{float:right; width:50%; margin-top:0;}
     #scr-play .msg{float:left; clear:left; width:48%; margin:8px 0 4px;}
     #scr-play .playfoot{float:left; clear:left; width:48%;}
+    #scr-play .tbarw{float:left; clear:left; width:48%; margin-top:2px;}
     .qrow canvas{width:180px; height:180px;}
     .qtext{margin:2px 0 6px;}
     .choice{margin:1% 1.5%;}
@@ -198,6 +206,7 @@
     <div id="q-mark-note" class="note"></div>
   </div>
   <div id="choices" class="choices"></div>
+  <div id="tbarw" class="tbarw" style="display:none"><div id="tbar" class="tbar"><div id="tbar-fill" class="tbar-fill"></div></div><span id="tbar-txt" class="tbar-txt"></span></div>
   <div id="msg" class="msg"></div>
   <div class="playfoot">
     <button id="hint-btn" class="sub">ヒント</button>
@@ -272,7 +281,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 6;
+  KZ.APP_VERSION = 7;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 
@@ -889,6 +898,13 @@
   };
   KZ.LEVELS = LEVELS;
 
+  /* ================= 制限時間（秒）＝過去問の〈時間〉を 1問あたりに ならした値（解答解説編・回転図形の3問）
+     問題14＝3分で 6問（30秒）・問題24＝1分で 4問（15秒）・問題34＝1分で 4問（15秒）→ 3問を ならすと 300秒÷14問＝約21秒。
+     むずかしい＝本番の水準 20・ふつう 30・やさしい 45（ちえの もり と同じく レベルの順に みじかく） */
+  var TIME_SEC = { 1: 45, 2: 30, 3: 20 };
+  KZ.TIME_SEC = TIME_SEC;
+  KZ.timeFor = function (q) { return TIME_SEC[q.level] || 30; };
+
   function rotOf(dir, times) { return dir === 'migi' ? (times % 4) : ((4 - times % 4) % 4); }
   KZ.rotOf = rotOf;
 
@@ -1277,6 +1293,9 @@
     var i, j, k, m, q, sigs, cnt, lvl, base, fig, v, a, b, s, canvas, ctx, data, variants, diff, total, px, py, events;
 
     KZ.seed(12345);
+    /* T0 制限時間＝レベルの順に みじかく・むずかしい は 本番（15〜30秒）の あいだ */
+    ok(TIME_SEC[1] > TIME_SEC[2] && TIME_SEC[2] > TIME_SEC[3] && TIME_SEC[3] >= 15 && TIME_SEC[3] <= 30, 'T0 制限時間の じゅん');
+    ok(KZ.timeFor({ level: 3 }) === TIME_SEC[3] && KZ.timeFor({ level: 1 }) === TIME_SEC[1], 'T0 timeFor');
     /* T1 変換の きまり */
     base = { kind: 'grid', n: 3, cells: [{ r: 0, c: 0, m: 'sankaku', o: 0 }, { r: 1, c: 2, m: 'hanbun', o: 1 }, { r: 2, c: 1, m: 'sen', o: 0 }] };
     ok(gridSig(transformGrid(base, 0, 4)) === gridSig(base), 'T1 4回まわすと もどる');
@@ -1522,6 +1541,7 @@
     var ids = ['scr-home', 'scr-play', 'scr-result', 'scr-zukan', 'scr-grown'], i;
     for (i = 0; i < ids.length; i++) { el(ids[i]).style.display = (ids[i] === 'scr-' + id) ? 'block' : 'none'; }
     screen = id;
+    if (id !== 'play') { stopTimer(); }
     if (id === 'home') { checkUpdate(); reloadIfIdle(); }
     global.scrollTo(0, 0);
   }
@@ -1588,6 +1608,57 @@
     el('msg').className = 'msg';
     el('next-btn').style.display = 'none';
     el('hint-btn').style.display = (q.type === 'count') ? 'none' : 'inline-block';
+    startTimer(KZ.timeFor(q));
+  }
+
+  /* ================= 制限時間（へっていく ぼう・ちえの もり と おなじ しくみ）================= */
+  var TM = { on: true, total: 0, left: 0, timer: null };
+  function stopTimer() { if (TM.timer) { global.clearInterval(TM.timer); TM.timer = null; } }
+  function paintTimer() {
+    var r = TM.total > 0 ? TM.left / TM.total : 0;
+    el('tbar-fill').style.width = Math.max(0, Math.min(100, r * 100)) + '%';
+    setText(el('tbar-txt'), (r <= 0.25 ? '！ ' : '') + 'のこり ' + Math.ceil(TM.left) + ' びょう');
+    el('tbar').className = 'tbar' + (r <= 0.25 ? ' low' : (r <= 0.5 ? ' mid' : ''));
+  }
+  function startTimer(sec) {
+    stopTimer();
+    el('tbarw').style.display = TM.on ? 'block' : 'none';
+    if (!TM.on) { return; }
+    TM.total = sec; TM.left = sec; paintTimer();
+    TM.timer = global.setInterval(function () {
+      TM.left -= 0.25;
+      if (TM.left <= 0) { TM.left = 0; paintTimer(); stopTimer(); onTimeout(); return; }
+      paintTimer();
+    }, 250);
+  }
+  /* じかんぎれ＝まちがい 1回と おなじ あつかい（1回目＝ヒントの うごき＋ぼうが もどる／2回目＝こたえ）。ばつは ない */
+  function onTimeout() {
+    var q;
+    if (!G || G.done || screen !== 'play') { return; }
+    q = G.qs[G.idx];
+    G.tries++;
+    if (G.tries === 1) {
+      KZ.snd.play('oshii');
+      if (q.type !== 'count') { onHint(); }
+      setText(el('msg'), 'じかんだよ！ もういちど えらんでみよう');
+      el('msg').className = 'msg warn';
+      el('hint-btn').style.display = 'none';
+      startTimer(KZ.timeFor(q));
+    } else {
+      revealAnswer(q, 'じかんだよ。');
+    }
+  }
+  /* こたえを 出して、まわる ようすを 見せる（2回 まちがえた とき・2回目の じかんぎれ） */
+  function revealAnswer(q, head) {
+    var nodes = choiceNodes();
+    G.done = true; stopTimer();
+    KZ.snd.play('kotae');
+    nodes[q.answerIndex].className += ' right';
+    setText(nodes[q.answerIndex].getElementsByClassName('mark')[0], '✓ こたえ');
+    setText(el('msg'), head + 'こたえは これ。まわる ようすを みてね');
+    el('msg').className = 'msg warn';
+    el('hint-btn').style.display = 'none';
+    playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 800);
   }
 
   function paintChoices() {
@@ -1607,7 +1678,7 @@
     var q = G.qs[G.idx], nodes = choiceNodes(), node = nodes[i], leaves = 0;
     if (G.done) { return; }
     if (i === q.answerIndex) {
-      G.done = true;
+      G.done = true; stopTimer();
       node.className += ' right';
       setText(node.getElementsByClassName('mark')[0], '✓ せいかい');
       leaves = (G.tries === 0) ? 2 : 1;
@@ -1626,13 +1697,7 @@
         setText(el('msg'), 'おしい！ もういちど えらんでみよう');
         el('msg').className = 'msg warn';
       } else {
-        G.done = true;
-        KZ.snd.play('kotae');
-        nodes[q.answerIndex].className += ' right';
-        setText(nodes[q.answerIndex].getElementsByClassName('mark')[0], '✓ こたえ');
-        setText(el('msg'), 'こたえは これ。まわる ようすを みてね');
-        el('msg').className = 'msg warn';
-        playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 800);
+        revealAnswer(q, '');
       }
     }
     el('hint-btn').style.display = 'none';
@@ -1762,6 +1827,11 @@
   }
   /* 1画面の検査（tools/fit_check.html）が ずかんを ぜんぶ そろえた姿を 測るための 入口（きろくは 書きかえない） */
   KZ.uiState = function () { return S; };
+  /* 制限時間の 検査（tools/timer_check.html）の 入口 */
+  KZ.uiTimer = function () { return TM; };
+  KZ.uiRound = function () { return G; };
+  KZ.uiTimeout = function () { onTimeout(); };
+  KZ.uiPaintTimer = function (left) { TM.left = left; paintTimer(); };
   /* 絵が 読めたら、いま 見えている 画面を 描き直す */
   var lastRes = null;
   KZ.onImgReady = function () {

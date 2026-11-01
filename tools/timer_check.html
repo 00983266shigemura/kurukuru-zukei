@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!-- くるくる ずけい ── 制限時間の 検査（CCが使う。tools/check_all.zsh から よぶ・無音の複製で・ブラウザの 仮想の時計で 本当に 時間を すすめる）
+     (1) 問題を出すと ぼうが 出て、レベルの 秒数で へっていく  (2) じかんぎれ 1回目＝「じかんだよ」＋ぼうが もどる・つぎへ は 出ない
+     (3) 2回目＝こたえが 出て 止まり、まわる ようすの あとに つぎへ  (4) つぎの 問題で また 動き、正解で 止まる
+     (5) まちがい 1回の あとの じかんぎれ＝こたえ  (6) 半分で だいだい・4分の1で しゅ＋「！」  (7) やめる で 止まる -->
+<html lang="ja"><head><meta charset="utf-8"><title>timer check</title></head>
+<body style="margin:0">
+<iframe id="f" src="../logs/silent_index.html" style="width:1024px;height:640px;border:0;display:block"></iframe>
+<pre id="out"></pre>
+<script>
+function put(s) { document.getElementById('out').textContent += s + '\n'; }
+document.getElementById('f').onload = function () {
+  var w = this.contentWindow, d = w.document, fails = [], n = 0, errs = [], TM, G, steps, bands, sampler;
+  w.onerror = function (m) { errs.push(String(m)); };
+  function el(id) { return d.getElementById(id); }
+  function ok(c, label) { n++; if (!c) { fails.push(label); } }
+  function choices() { return el('choices').getElementsByClassName('choice'); }
+  function fin(e) {
+    if (e) { put('TIMER=FAIL 例外 ' + e + (e && e.stack ? ' ' + e.stack : '')); return; }
+    put('TIMER checks=' + n + ' fails=' + fails.length + ' errs=' + errs.length + (fails.length ? ' ' + fails.join(' | ') : '') + (errs.length ? ' ' + errs.join(' | ') : ''));
+    put(fails.length === 0 && errs.length === 0 ? 'TIMER=PASS' : 'TIMER=FAIL');
+  }
+  /* 手順を じゅんに 待ちながら すすめる（待ち時間は ブラウザの 仮想の時計） */
+  function run(i) {
+    if (i >= steps.length) { fin(null); return; }
+    try { steps[i][1](); } catch (e) { fin(e); return; }
+    setTimeout(function () { run(i + 1); }, steps[i][0]);
+  }
+  steps = [
+    [500, function () {
+      w.KZ.seed(5);
+      el('lv-1').click();
+      TM = w.KZ.uiTimer(); G = w.KZ.uiRound();
+      ok(el('tbarw').style.display === 'block' && TM.total === w.KZ.TIME_SEC[1] && TM.timer !== null, '(1) やさしい で ぼうが 出て 動く total=' + TM.total);
+      ok(el('tbar-txt').textContent === 'のこり ' + w.KZ.TIME_SEC[1] + ' びょう', '(1) のこりの 文字 ' + el('tbar-txt').textContent);
+    }],
+    [(45 + 1) * 1000, function () {}],
+    [5000, function () {
+      ok(G.tries === 1 && !G.done && el('msg').textContent.indexOf('じかんだよ') === 0, '(2) 1回目 tries=' + G.tries + ' msg=' + el('msg').textContent);
+      ok(TM.timer !== null && TM.left > TM.total - 6 && el('tbar').className === 'tbar', '(2) ぼうが もどって 動く left=' + TM.left);
+      ok(el('next-btn').style.display === 'none' && el('hint-btn').style.display === 'none', '(2) つぎへ は まだ 出ない');
+    }],
+    [(45 + 1) * 1000, function () {}],
+    [6000, function () {
+      ok(G.done === true && TM.timer === null && el('msg').textContent.indexOf('じかんだよ。こたえは これ') === 0, '(3) 2回目＝こたえ msg=' + el('msg').textContent);
+      ok(choices()[G.qs[G.idx].answerIndex].className.indexOf('right') >= 0, '(3) こたえに しるし');
+    }],
+    [100, function () {
+      /* まわる ようす（requestAnimationFrame）は 画面を 描かない 検査では すすまない＝つぎへ は 手で 出す（fit_check と おなじ） */
+      el('next-btn').style.display = 'inline-block';
+      el('next-btn').click();
+      ok(TM.timer !== null && TM.left === TM.total, '(4) つぎの 問題で また 動く');
+      choices()[G.qs[G.idx].answerIndex].click();
+      ok(TM.timer === null && G.done === true, '(4) 正解で 止まる');
+    }],
+    [3000, function () {
+      el('next-btn').style.display = 'inline-block'; el('next-btn').click();
+      /* (5) まちがい 1回 → じかんぎれ＝こたえ */
+      var q = G.qs[G.idx], k = q.answerIndex === 0 ? 1 : 0;
+      choices()[k].click();
+      ok(G.tries === 1 && TM.timer !== null, '(5) まちがい 1回では 止まらない');
+      w.KZ.uiTimeout();
+      ok(G.done === true && TM.timer === null && el('msg').textContent.indexOf('じかんだよ。') === 0, '(5) その あとの じかんぎれ＝こたえ');
+    }],
+    [100, function () {
+      el('play-back').click();
+      ok(TM.timer === null, '(7) やめる で 止まる');
+      el('lv-3').click();
+      ok(TM.total === w.KZ.TIME_SEC[3] && TM.timer !== null, '(1) むずかしい の 秒数 total=' + TM.total);
+      /* (6) のこりの わりあいごとの いろ・「！」（20びょう の ぼうで 0.5秒きざみに ぜんぶ 描いて 確かめる） */
+      bands = { full: 0, mid: 0, low: 0, bad: [] };
+      for (sampler = 40; sampler >= 0; sampler--) {
+        var left = sampler / 2, r = left / TM.total, want, cls, txt;
+        w.KZ.uiPaintTimer(left);
+        cls = el('tbar').className; txt = el('tbar-txt').textContent;
+        want = r <= 0.25 ? 'low' : (r <= 0.5 ? 'mid' : 'full');
+        bands[want]++;
+        if (cls !== 'tbar' + (want === 'full' ? '' : ' ' + want) || (want === 'low') !== (txt.indexOf('！ ') === 0) || txt.indexOf('のこり ' + Math.ceil(left) + ' びょう') < 0) { bands.bad.push(left + ':' + cls + ':' + txt); }
+      }
+      ok(bands.full > 0 && bands.mid > 0 && bands.low > 0 && bands.bad.length === 0, '(6) いろと「！」 full=' + bands.full + ' mid=' + bands.mid + ' low=' + bands.low + ' ずれ=' + bands.bad.slice(0, 3).join(','));
+      ok(el('tbar-fill').style.width === '0%', '(6) 0びょうで ぼうが からっぽ ' + el('tbar-fill').style.width);
+    }],
+    [100, function () {
+      el('play-back').click();
+      el('lv-2').click();
+      ok(TM.total === w.KZ.TIME_SEC[2], '(1) ふつう の 秒数 total=' + TM.total);
+      el('play-back').click();
+      ok(TM.timer === null, '(7) やめる で 止まる（2）');
+    }]
+  ];
+  run(0);
+};
+</script>
+</body></html>

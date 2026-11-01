@@ -20,14 +20,14 @@
     --ground:#f6f4ee; --card:#ffffff; --ink:#1b1b1b; --ink-soft:#55606b; --line:#d6d8dc;
     --ao:#0072B2; --daidai:#E69F00; --murasaki:#CC79A7; --mizu:#56B4E9; --ki:#F0E442; --ryokuao:#009E73;
     --ao-bg:#eaf3fa; --daidai-bg:#fdf3e2; --daidai-ink:#8a5a00; --nashi:#9aa5ae; --on-accent:#ffffff;
-    --on-mizu:#102030; --on-murasaki:#2a1020; --locked:#f1f1ef;
+    --on-mizu:#102030; --on-murasaki:#2a1020; --locked:#f1f1ef; --shu:#D55E00;
   }
   @media (prefers-color-scheme: dark){
     :root{
       --ground:#14191f; --card:#1c232b; --ink:#e8edf2; --ink-soft:#a7b4c0; --line:#38434e;
       --ao-bg:#12354a; --daidai-bg:#3d3010; --daidai-ink:#f2b544; --nashi:#5b6672; --locked:#232830;
       --ao:#0072B2; --daidai:#E69F00; --murasaki:#CC79A7; --mizu:#56B4E9; --ki:#F0E442; --ryokuao:#009E73;
-      --on-accent:#ffffff; --on-mizu:#102030; --on-murasaki:#2a1020;
+      --on-accent:#ffffff; --on-mizu:#102030; --on-murasaki:#2a1020; --shu:#D55E00;
     }
   }
   *{box-sizing:border-box;}
@@ -99,6 +99,13 @@
   .msg.warn{color:var(--daidai-ink); font-weight:bold;}
   .playfoot{text-align:center;}
   .playfoot button{margin:4px 8px;}
+  /* 制限時間＝へっていく ぼう。ながさ＋のこりの かず＋すくないと「！」の 3つで しらせる（いろだけに たよらない・あお→だいだい→しゅ） */
+  .tbarw{overflow:hidden; margin:6px auto 0; max-width:640px;}
+  .tbar{float:left; position:relative; width:60%; height:18px; margin-top:4px; background:var(--line); border-radius:9px; overflow:hidden;}
+  .tbar-fill{position:absolute; left:0; top:0; bottom:0; width:100%; background:var(--ao); -webkit-transition:width 0.25s linear; transition:width 0.25s linear;}
+  .tbar.mid .tbar-fill{background:var(--daidai);}
+  .tbar.low .tbar-fill{background:var(--shu);}
+  .tbar-txt{float:right; width:38%; white-space:nowrap; overflow:hidden; text-align:left; font-size:0.67rem; font-weight:bold; line-height:26px; color:var(--ink);}
   #next-btn{font-size:1.08rem; padding:14px 40px;}
 
   /* けっか */
@@ -133,6 +140,7 @@
     #scr-play .choices{float:right; width:50%; margin-top:0;}
     #scr-play .msg{float:left; clear:left; width:48%; margin:8px 0 4px;}
     #scr-play .playfoot{float:left; clear:left; width:48%;}
+    #scr-play .tbarw{float:left; clear:left; width:48%; margin-top:2px;}
     .qrow canvas{width:180px; height:180px;}
     .qtext{margin:2px 0 6px;}
     .choice{margin:1% 1.5%;}
@@ -198,6 +206,7 @@
     <div id="q-mark-note" class="note"></div>
   </div>
   <div id="choices" class="choices"></div>
+  <div id="tbarw" class="tbarw" style="display:none"><div id="tbar" class="tbar"><div id="tbar-fill" class="tbar-fill"></div></div><span id="tbar-txt" class="tbar-txt"></span></div>
   <div id="msg" class="msg"></div>
   <div class="playfoot">
     <button id="hint-btn" class="sub">ヒント</button>

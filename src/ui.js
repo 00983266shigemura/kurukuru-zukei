@@ -13,6 +13,7 @@
     var ids = ['scr-home', 'scr-play', 'scr-result', 'scr-zukan', 'scr-grown'], i;
     for (i = 0; i < ids.length; i++) { el(ids[i]).style.display = (ids[i] === 'scr-' + id) ? 'block' : 'none'; }
     screen = id;
+    if (id !== 'play') { stopTimer(); }
     if (id === 'home') { checkUpdate(); reloadIfIdle(); }
     global.scrollTo(0, 0);
   }
@@ -79,6 +80,57 @@
     el('msg').className = 'msg';
     el('next-btn').style.display = 'none';
     el('hint-btn').style.display = (q.type === 'count') ? 'none' : 'inline-block';
+    startTimer(KZ.timeFor(q));
+  }
+
+  /* ================= 制限時間（へっていく ぼう・ちえの もり と おなじ しくみ）================= */
+  var TM = { on: true, total: 0, left: 0, timer: null };
+  function stopTimer() { if (TM.timer) { global.clearInterval(TM.timer); TM.timer = null; } }
+  function paintTimer() {
+    var r = TM.total > 0 ? TM.left / TM.total : 0;
+    el('tbar-fill').style.width = Math.max(0, Math.min(100, r * 100)) + '%';
+    setText(el('tbar-txt'), (r <= 0.25 ? '！ ' : '') + 'のこり ' + Math.ceil(TM.left) + ' びょう');
+    el('tbar').className = 'tbar' + (r <= 0.25 ? ' low' : (r <= 0.5 ? ' mid' : ''));
+  }
+  function startTimer(sec) {
+    stopTimer();
+    el('tbarw').style.display = TM.on ? 'block' : 'none';
+    if (!TM.on) { return; }
+    TM.total = sec; TM.left = sec; paintTimer();
+    TM.timer = global.setInterval(function () {
+      TM.left -= 0.25;
+      if (TM.left <= 0) { TM.left = 0; paintTimer(); stopTimer(); onTimeout(); return; }
+      paintTimer();
+    }, 250);
+  }
+  /* じかんぎれ＝まちがい 1回と おなじ あつかい（1回目＝ヒントの うごき＋ぼうが もどる／2回目＝こたえ）。ばつは ない */
+  function onTimeout() {
+    var q;
+    if (!G || G.done || screen !== 'play') { return; }
+    q = G.qs[G.idx];
+    G.tries++;
+    if (G.tries === 1) {
+      KZ.snd.play('oshii');
+      if (q.type !== 'count') { onHint(); }
+      setText(el('msg'), 'じかんだよ！ もういちど えらんでみよう');
+      el('msg').className = 'msg warn';
+      el('hint-btn').style.display = 'none';
+      startTimer(KZ.timeFor(q));
+    } else {
+      revealAnswer(q, 'じかんだよ。');
+    }
+  }
+  /* こたえを 出して、まわる ようすを 見せる（2回 まちがえた とき・2回目の じかんぎれ） */
+  function revealAnswer(q, head) {
+    var nodes = choiceNodes();
+    G.done = true; stopTimer();
+    KZ.snd.play('kotae');
+    nodes[q.answerIndex].className += ' right';
+    setText(nodes[q.answerIndex].getElementsByClassName('mark')[0], '✓ こたえ');
+    setText(el('msg'), head + 'こたえは これ。まわる ようすを みてね');
+    el('msg').className = 'msg warn';
+    el('hint-btn').style.display = 'none';
+    playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 800);
   }
 
   function paintChoices() {
@@ -98,7 +150,7 @@
     var q = G.qs[G.idx], nodes = choiceNodes(), node = nodes[i], leaves = 0;
     if (G.done) { return; }
     if (i === q.answerIndex) {
-      G.done = true;
+      G.done = true; stopTimer();
       node.className += ' right';
       setText(node.getElementsByClassName('mark')[0], '✓ せいかい');
       leaves = (G.tries === 0) ? 2 : 1;
@@ -117,13 +169,7 @@
         setText(el('msg'), 'おしい！ もういちど えらんでみよう');
         el('msg').className = 'msg warn';
       } else {
-        G.done = true;
-        KZ.snd.play('kotae');
-        nodes[q.answerIndex].className += ' right';
-        setText(nodes[q.answerIndex].getElementsByClassName('mark')[0], '✓ こたえ');
-        setText(el('msg'), 'こたえは これ。まわる ようすを みてね');
-        el('msg').className = 'msg warn';
-        playTurnAnim(q, function () { el('next-btn').style.display = 'inline-block'; }, 800);
+        revealAnswer(q, '');
       }
     }
     el('hint-btn').style.display = 'none';
@@ -253,6 +299,11 @@
   }
   /* 1画面の検査（tools/fit_check.html）が ずかんを ぜんぶ そろえた姿を 測るための 入口（きろくは 書きかえない） */
   KZ.uiState = function () { return S; };
+  /* 制限時間の 検査（tools/timer_check.html）の 入口 */
+  KZ.uiTimer = function () { return TM; };
+  KZ.uiRound = function () { return G; };
+  KZ.uiTimeout = function () { onTimeout(); };
+  KZ.uiPaintTimer = function (left) { TM.left = left; paintTimer(); };
   /* 絵が 読めたら、いま 見えている 画面を 描き直す */
   var lastRes = null;
   KZ.onImgReady = function () {

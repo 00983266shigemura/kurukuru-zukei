@@ -10,7 +10,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 6;
+  KZ.APP_VERSION = 7;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 
@@ -627,6 +627,13 @@
   };
   KZ.LEVELS = LEVELS;
 
+  /* ================= 制限時間（秒）＝過去問の〈時間〉を 1問あたりに ならした値（解答解説編・回転図形の3問）
+     問題14＝3分で 6問（30秒）・問題24＝1分で 4問（15秒）・問題34＝1分で 4問（15秒）→ 3問を ならすと 300秒÷14問＝約21秒。
+     むずかしい＝本番の水準 20・ふつう 30・やさしい 45（ちえの もり と同じく レベルの順に みじかく） */
+  var TIME_SEC = { 1: 45, 2: 30, 3: 20 };
+  KZ.TIME_SEC = TIME_SEC;
+  KZ.timeFor = function (q) { return TIME_SEC[q.level] || 30; };
+
   function rotOf(dir, times) { return dir === 'migi' ? (times % 4) : ((4 - times % 4) % 4); }
   KZ.rotOf = rotOf;
 
@@ -1015,6 +1022,9 @@
     var i, j, k, m, q, sigs, cnt, lvl, base, fig, v, a, b, s, canvas, ctx, data, variants, diff, total, px, py, events;
 
     KZ.seed(12345);
+    /* T0 制限時間＝レベルの順に みじかく・むずかしい は 本番（15〜30秒）の あいだ */
+    ok(TIME_SEC[1] > TIME_SEC[2] && TIME_SEC[2] > TIME_SEC[3] && TIME_SEC[3] >= 15 && TIME_SEC[3] <= 30, 'T0 制限時間の じゅん');
+    ok(KZ.timeFor({ level: 3 }) === TIME_SEC[3] && KZ.timeFor({ level: 1 }) === TIME_SEC[1], 'T0 timeFor');
     /* T1 変換の きまり */
     base = { kind: 'grid', n: 3, cells: [{ r: 0, c: 0, m: 'sankaku', o: 0 }, { r: 1, c: 2, m: 'hanbun', o: 1 }, { r: 2, c: 1, m: 'sen', o: 0 }] };
     ok(gridSig(transformGrid(base, 0, 4)) === gridSig(base), 'T1 4回まわすと もどる');

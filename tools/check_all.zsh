@@ -29,7 +29,7 @@ TMP="$ROOT/logs/selftest_dom.html"
 RESULT=$(/usr/bin/python3 "$ROOT/tools/read_selftest.py" "$TMP")
 print -r -- "$RESULT"
 print -r -- "$RESULT" | head -1 | grep -q '^PASS=[0-9]* FAIL=0$' || touch "$FAILFILE"
-print "== 6/7 iPad よこおきで 1がめんに おさまるか（1024×640・ぜんぶの がめん・無音の複製で） =="
+print "== 6/7 iPad よこおきで 1がめんに おさまるか（1024×640・ぜんぶの がめん・無音の複製で）と 制限時間 =="
 /usr/bin/python3 "$ROOT/tools/mkpage.py" --selftest || touch "$FAILFILE"
 /usr/bin/python3 "$ROOT/tools/mkpage.py" || touch "$FAILFILE"
 FIT=$("$CHROME" --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=20000 \
@@ -37,6 +37,11 @@ FIT=$("$CHROME" --headless=new --disable-gpu --no-sandbox --allow-file-access-fr
 print -r -- "$FIT"
 # 合格は「FIT=PASS」だけの行（検査ページの中の文字には一致させない）
 print -r -- "$FIT" | grep -qx 'FIT=PASS' || touch "$FAILFILE"
+# 制限時間＝仮想の時計で 本当に 時間を すすめて、じかんぎれ 1回目・2回目・止まる場面を 確かめる（無音の複製で）
+TIMER=$("$CHROME" --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=200000 \
+  --dump-dom "file://$ROOT/tools/timer_check.html" 2>/dev/null | sed -n '/<pre id="out">/,/<\/pre>/p' | sed -e 's/<pre id="out">//' -e 's/<\/pre>//')
+print -r -- "$TIMER"
+print -r -- "$TIMER" | grep -qx 'TIMER=PASS' || touch "$FAILFILE"
 print "== 7/7 公開物に書かない語（受験校・受験番号など） =="
 /usr/bin/python3 "$ROOT/tools/check_private.py" --selftest || touch "$FAILFILE"
 /usr/bin/python3 "$ROOT/tools/check_private.py" || touch "$FAILFILE"
