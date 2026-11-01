@@ -10,7 +10,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 5;
+  KZ.APP_VERSION = 6;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 

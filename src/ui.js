@@ -229,7 +229,7 @@
 
   /* ================= ずかん ================= */
   /* ずかん＝1ページ 10ぴき（よこおき 1画面に おさめる）。まえ・つぎ で めくる */
-  var Z = { page: 0, per: 10 };
+  var Z = { page: 0, per: 10, all: false };   /* all＝おとなのひと の「ぜんぶ みる」（きろくは 変えない） */
   function renderZukan() {
     var box = el('zukan-list'), i, pic, card, c, got, cv, pages = Math.ceil(KZ.ZUKAN.length / Z.per), from, to;
     if (Z.page < 0) { Z.page = 0; }
@@ -239,14 +239,15 @@
     for (i = from; i < to; i++) {
       pic = KZ.ZUKAN[i];
       got = 0; for (c = 0; c < S.zukan.length; c++) { if (S.zukan[c] === pic.id) { got++; } }
-      card = doc.createElement('div'); card.className = 'zcard' + (got ? '' : ' none');
+      if (Z.all && !got) { got = 1; }
+      card =doc.createElement('div'); card.className = 'zcard' + (got ? '' : ' none');
       cv = doc.createElement('canvas'); cv.className = 'zcv'; card.appendChild(cv);
       card.appendChild(doc.createElement('div')).textContent = got ? pic.name + (got > 1 ? ' ×' + got : '') : '？？？';
       box.appendChild(card);
       if (got) { KZ.paintStage(cv, 3, pic.id); } else { KZ.paintStage(cv, 0, pic.id); }
     }
     for (i = 0, got = 0; i < KZ.ZUKAN.length; i++) { if (S.zukan.indexOf(KZ.ZUKAN[i].id) >= 0) { got++; } }
-    setText(el('zukan-page'), (Z.page + 1) + ' ／ ' + pages + ' ページ（' + got + '／' + KZ.ZUKAN.length + ' しゅるい）');
+    setText(el('zukan-page'), (Z.page + 1) + ' ／ ' + pages + ' ページ（' + (Z.all ? 'ぜんぶ みる' : got + '／' + KZ.ZUKAN.length + ' しゅるい') + '）');
     el('zukan-prev').style.visibility = Z.page > 0 ? 'visible' : 'hidden';
     el('zukan-next').style.visibility = Z.page < pages - 1 ? 'visible' : 'hidden';
   }
@@ -322,11 +323,12 @@
     on('lv-1', function () { startRound(1); });
     on('lv-2', function () { startRound(2); });
     on('lv-3', function () { startRound(3); });
-    on('zukan-btn', function () { Z.page = 0; renderZukan(); show('zukan'); });
+    on('zukan-btn', function () { Z.page = 0; Z.all = false; renderZukan(); show('zukan'); });
     on('zukan-prev', function () { Z.page--; renderZukan(); });
     on('zukan-next', function () { Z.page++; renderZukan(); });
+    on('grown-zukan-all', function () { Z.page = 0; Z.all = true; renderZukan(); show('zukan'); });   /* おとなのひと＝絵の見え方を 確かめる（きろくは 変えない） */
     KZ.preloadZukan();
-    on('zukan-back', function () { renderHome(); show('home'); });
+    on('zukan-back', function () { Z.all = false; renderHome(); show('home'); });
     on('play-back', function () { stopAnim(); renderHome(); show('home'); });
     on('next-btn', onNext);
     on('hint-btn', onHint);

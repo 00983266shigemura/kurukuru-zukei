@@ -52,6 +52,22 @@ document.getElementById('f').onload = function () {
     el('zukan-btn').click();
     if (meas('zukan')) { stop(); }
     el('zukan-back').click();
+    /* おとなのひと の「ずかんの絵を全部見る」＝きろくを 変えずに ぜんぶの ページに 名前が 出る・もどると ふつうの ずかんに もどる */
+    var US0 = w.KZ.uiState(), before = US0.zukan.join(','), ap, qn;
+    el('grown-zukan-all').click();
+    for (ap = 1; ap <= Math.ceil(w.KZ.ZUKAN.length / 10); ap++) {
+      if (meas('zukanall' + ap)) { stop(); }
+      qn = (el('zukan-list').textContent.match(/？？？/g) || []).length;
+      if (qn > 0) { fails.push('zukanall' + ap + ' ？？？=' + qn); }
+      if (el('zukan-page').textContent.indexOf('ぜんぶ みる') < 0) { fails.push('zukanall' + ap + ' ぜんぶ みる の表示なし'); }
+      el('zukan-next').click();
+    }
+    el('zukan-back').click();
+    if (US0.zukan.join(',') !== before) { fails.push('zukanall きろくが 変わった'); }
+    el('zukan-btn').click();
+    if ((el('zukan-list').textContent.match(/？？？/g) || []).length === 0) { fails.push('zukanall もどった後も ？？？ が 出ない'); }
+    put('ZUKANALL pages=' + (ap - 1) + ' きろく=' + (US0.zukan.join(',') === before ? '同じ' : '変わった'));
+    el('zukan-back').click();
     /* ずかんを ぜんぶ そろえた姿（いちばん ながい なまえ・×2 も 出る）を ぜんぶの ページで 測る */
     var US = w.KZ.uiState(), zi, zp;
     for (zi = 0; zi < w.KZ.ZUKAN.length; zi++) { US.zukan.push(w.KZ.ZUKAN[zi].id); }
