@@ -1,12 +1,57 @@
 CACHE MANIFEST
-# くるくる ずけい はんすう 4
-# index.html md5 18c269007aac82acaeb318a0b96f176f
+# くるくる ずけい はんすう 5
+# index.html md5 1a314887d0530623701bbb4c6dce705c
 # icon.png md5 39847f0cf42e05db404fb7ece2228c13
+# img/zukan 44 files md5 40db24edd72f0779e3541e02e006fc5e
 
 CACHE:
 ./
 index.html
 icon.png
+img/zukan/akaashi_kuwagata.png
+img/zukan/akuteon_zoukabuto.png
+img/zukan/antaeusu_ookuwagata.png
+img/zukan/atorasu_ookabuto.png
+img/zukan/daikoku_kogane.png
+img/zukan/erafusu_hosoaka.png
+img/zukan/gengorou.png
+img/zukan/genji_botaru.png
+img/zukan/girafa_nokogiri.png
+img/zukan/gohonzuno_kabuto.png
+img/zukan/gomadara_kamikiri.png
+img/zukan/goraiasu_ootsunohanamuguri.png
+img/zukan/guranto_shirokabuto.png
+img/zukan/hanmyou.png
+img/zukan/herakuresu_ookabuto.png
+img/zukan/hirata_kuwagata.png
+img/zukan/kanabun.png
+img/zukan/kentaurusu_ookabuto.png
+img/zukan/kokuwagata.png
+img/zukan/kookasasu_ookabuto.png
+img/zukan/mandiburarisu_futamata.png
+img/zukan/mengata_kuwagata.png
+img/zukan/midori_senchikogane.png
+img/zukan/miyama_kuwagata.png
+img/zukan/mizusumashi.png
+img/zukan/neputyuun_ookabuto.png
+img/zukan/nijiiro_kuwagata.png
+img/zukan/nokogiri_kuwagata.png
+img/zukan/oo_osamushi.png
+img/zukan/ookuwagata.png
+img/zukan/oozoumushi.png
+img/zukan/ougon_oni_kuwagata.png
+img/zukan/parawan_oohirata.png
+img/zukan/rakodaaru_tsuya.png
+img/zukan/ruriboshi_kamikiri.png
+img/zukan/sai_kabuto.png
+img/zukan/satan_ookabuto.png
+img/zukan/suji_kuwagata.png
+img/zukan/sukarabe.png
+img/zukan/sumatora_oohirata.png
+img/zukan/tarandusu_ootsuya.png
+img/zukan/tenaga_kogane.png
+img/zukan/yamato_tamamushi.png
+img/zukan/yooroppa_miyama.png
 
 NETWORK:
 *

@@ -61,6 +61,8 @@ def build(src_text):
     if src_text.count(ANCHOR) < 1:
         raise ValueError('index.html に <head> が無い＝無音化を入れる場所が無い')
     out = src_text.replace(ANCHOR, ANCHOR + u'\n' + SILENCE, 1)
+    # 複製は logs/ に置くので、img/ などの相対パスは ひとつ上（リポジトリの根）から引く
+    out = out.replace(ANCHOR, ANCHOR + u'\n<base href="../">', 1)
     return out
 
 

@@ -51,13 +51,22 @@ def main():
     icon = os.path.join(ROOT, 'icon.png')
     if not os.path.exists(icon):
         sys.exit('✕ icon.png がありません（python3 tools/make_icon.py で作る）')
+    # ずかん の絵（img/zukan/）は app.js の ZUKAN_IMGS と 名前も数も 同じであること（1枚でも欠けると「?」のまま）
+    zdir = os.path.join(ROOT, 'img', 'zukan')
+    zfiles = sorted(f for f in os.listdir(zdir) if f.endswith('.png')) if os.path.isdir(zdir) else []
+    zids = re.findall(r"\['([a-z_]+)', '[^']+'\]", app.split('var ZUKAN_IMGS')[1].split('];')[0]) if 'var ZUKAN_IMGS' in app else []
+    if sorted(i + '.png' for i in zids) != zfiles:
+        sys.exit('✕ img/zukan/ の絵（%d枚）と app.js の ZUKAN_IMGS（%d）が合いません' % (len(zfiles), len(zids)))
+    zpaths = ['img/zukan/' + f for f in zfiles]
+    zsum = hashlib.md5(''.join(md5(os.path.join(ROOT, p)) for p in zpaths).encode('utf-8')).hexdigest()
     manifest = (
         'CACHE MANIFEST\n'
         '# くるくる ずけい はんすう %d\n'
         '# index.html md5 %s\n'
         '# icon.png md5 %s\n'
-        '\nCACHE:\n./\nindex.html\nicon.png\n\nNETWORK:\n*\n'
-    ) % (ver, md5(out), md5(icon))
+        '# img/zukan %d files md5 %s\n'
+        '\nCACHE:\n./\nindex.html\nicon.png\n%s\n\nNETWORK:\n*\n'
+    ) % (ver, md5(out), md5(icon), len(zpaths), zsum, '\n'.join(zpaths))
     with io.open(os.path.join(ROOT, 'offline.appcache'), 'w', encoding='utf-8', newline='\n') as fp:
         fp.write(manifest)
     print('できました ＝ index.html（%d バイト・はんすう %d・md5 %s）・offline.appcache' % (os.path.getsize(out), ver, md5(out)))

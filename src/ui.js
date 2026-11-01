@@ -20,7 +20,7 @@
 
   /* ================= はじめの がめん ================= */
   function renderHome() {
-    var who = S.name ? S.name + ' の' : '', stage = KZ.stageOf(S.cLeaves), pic = KZ.PICS[S.cIndex % KZ.PICS.length];
+    var who = S.name ? S.name + ' の' : '', stage = KZ.stageOf(S.cLeaves), pic = KZ.ZUKAN[S.cIndex % KZ.ZUKAN.length];
     var next = KZ.nextRankAt(S.total), need = KZ.GROW[3] - S.cLeaves;
     setText(el('home-rank'), who + ' かんむり：' + KZ.rankOf(S.total));
     setText(el('home-leaves'), 'はっぱ ' + S.total + 'まい' + (next !== null ? '（つぎの かんむりまで あと ' + (next - S.total) + 'まい）' : '（いちばん うえ！）'));
@@ -217,8 +217,8 @@
     if (lines.length > 0) { KZ.snd.play('grow', G.ok === G.qs.length ? 1.5 : 1.1); }
     if (lines.length === 0) { lines.push(KZ.STAGE_NAME[KZ.stageOf(S.cLeaves)] + ' が そだっているよ（せいちゅうまで あと ' + (KZ.GROW[3] - S.cLeaves) + 'まい）'); }
     setText(el('res-events'), lines.join(' ／ '));
-    if (adultId) { KZ.paintStage(el('res-egg'), 3, adultId); }
-    else { KZ.paintStage(el('res-egg'), KZ.stageOf(S.cLeaves), KZ.PICS[S.cIndex % KZ.PICS.length].id); }
+    lastRes = adultId ? { stage: 3, id: adultId } : { stage: KZ.stageOf(S.cLeaves), id: KZ.ZUKAN[S.cIndex % KZ.ZUKAN.length].id };
+    KZ.paintStage(el('res-egg'), lastRes.stage, lastRes.id);
     /* つぎの レベルの おすすめ（4／5 以上 で ひとつ 上を すすめる） */
     if (G.level < 3 && G.firstOk >= Math.ceil(G.qs.length * 0.8)) {
       el('res-up').style.display = 'inline-block';
@@ -228,11 +228,16 @@
   }
 
   /* ================= ずかん ================= */
+  /* ずかん＝1ページ 10ぴき（よこおき 1画面に おさめる）。まえ・つぎ で めくる */
+  var Z = { page: 0, per: 10 };
   function renderZukan() {
-    var box = el('zukan-list'), i, pic, card, c, got, cv;
+    var box = el('zukan-list'), i, pic, card, c, got, cv, pages = Math.ceil(KZ.ZUKAN.length / Z.per), from, to;
+    if (Z.page < 0) { Z.page = 0; }
+    if (Z.page > pages - 1) { Z.page = pages - 1; }
+    from = Z.page * Z.per; to = Math.min(KZ.ZUKAN.length, from + Z.per);
     box.innerHTML = '';
-    for (i = 0; i < KZ.PICS.length; i++) {
-      pic = KZ.PICS[i];
+    for (i = from; i < to; i++) {
+      pic = KZ.ZUKAN[i];
       got = 0; for (c = 0; c < S.zukan.length; c++) { if (S.zukan[c] === pic.id) { got++; } }
       card = doc.createElement('div'); card.className = 'zcard' + (got ? '' : ' none');
       cv = doc.createElement('canvas'); cv.className = 'zcv'; card.appendChild(cv);
@@ -240,7 +245,19 @@
       box.appendChild(card);
       if (got) { KZ.paintStage(cv, 3, pic.id); } else { KZ.paintStage(cv, 0, pic.id); }
     }
+    for (i = 0, got = 0; i < KZ.ZUKAN.length; i++) { if (S.zukan.indexOf(KZ.ZUKAN[i].id) >= 0) { got++; } }
+    setText(el('zukan-page'), (Z.page + 1) + ' ／ ' + pages + ' ページ（' + got + '／' + KZ.ZUKAN.length + ' しゅるい）');
+    el('zukan-prev').style.visibility = Z.page > 0 ? 'visible' : 'hidden';
+    el('zukan-next').style.visibility = Z.page < pages - 1 ? 'visible' : 'hidden';
   }
+  /* 1画面の検査（tools/fit_check.html）が ずかんを ぜんぶ そろえた姿を 測るための 入口（きろくは 書きかえない） */
+  KZ.uiState = function () { return S; };
+  /* 絵が 読めたら、いま 見えている 画面を 描き直す */
+  var lastRes = null;
+  KZ.onImgReady = function () {
+    if (screen === 'zukan') { renderZukan(); }
+    else if (screen === 'result' && lastRes) { KZ.paintStage(el('res-egg'), lastRes.stage, lastRes.id); }
+  };
 
   /* ================= おとなのひと ================= */
   function renderGrown() {
@@ -305,7 +322,10 @@
     on('lv-1', function () { startRound(1); });
     on('lv-2', function () { startRound(2); });
     on('lv-3', function () { startRound(3); });
-    on('zukan-btn', function () { renderZukan(); show('zukan'); });
+    on('zukan-btn', function () { Z.page = 0; renderZukan(); show('zukan'); });
+    on('zukan-prev', function () { Z.page--; renderZukan(); });
+    on('zukan-next', function () { Z.page++; renderZukan(); });
+    KZ.preloadZukan();
     on('zukan-back', function () { renderHome(); show('home'); });
     on('play-back', function () { stopAnim(); renderHome(); show('home'); });
     on('next-btn', onNext);

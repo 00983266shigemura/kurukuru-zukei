@@ -52,6 +52,16 @@ document.getElementById('f').onload = function () {
     el('zukan-btn').click();
     if (meas('zukan')) { stop(); }
     el('zukan-back').click();
+    /* ずかんを ぜんぶ そろえた姿（いちばん ながい なまえ・×2 も 出る）を ぜんぶの ページで 測る */
+    var US = w.KZ.uiState(), zi, zp;
+    for (zi = 0; zi < w.KZ.ZUKAN.length; zi++) { US.zukan.push(w.KZ.ZUKAN[zi].id); }
+    US.zukan.push(w.KZ.ZUKAN[w.KZ.ZUKAN.length - 1].id);
+    el('zukan-btn').click();
+    for (zp = 1; zp <= Math.ceil(w.KZ.ZUKAN.length / 10); zp++) {
+      if (meas('zukanfull' + zp)) { stop(); }
+      el('zukan-next').click();
+    }
+    el('zukan-back').click();
     var ev = d.createEvent('MouseEvents'); ev.initEvent('mousedown', true, true); el('grown-btn').dispatchEvent(ev);
     w.setTimeout(function () {
       meas('grown');

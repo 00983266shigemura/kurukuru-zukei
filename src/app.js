@@ -10,7 +10,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 4;
+  KZ.APP_VERSION = 5;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 
@@ -313,6 +313,51 @@
   ];
   KZ.PICS = PICS;
 
+  /* ずかん＝はじめの 6ぴき（上の PICS）のあと、7ひき目から ChatGPT の絵（img/zukan/<id>.png・甲虫44種。
+     ちえの もり と 同じ絵・同じ順）。問題には 使わない（回転の 問題は PICS と SHAPES だけ）。
+     絵は 読めたら 描く。読めるまでは「?」の まる */
+  var ZUKAN_IMGS = [
+    ['herakuresu_ookabuto', 'ヘラクレスオオカブト'], ['kookasasu_ookabuto', 'コーカサスオオカブト'], ['atorasu_ookabuto', 'アトラスオオカブト'], ['neputyuun_ookabuto', 'ネプチューンオオカブト'], ['satan_ookabuto', 'サタンオオカブト'],
+    ['guranto_shirokabuto', 'グラントシロカブト'], ['gohonzuno_kabuto', 'ゴホンヅノカブト'], ['akuteon_zoukabuto', 'アクティオンゾウカブト'], ['kentaurusu_ookabuto', 'ケンタウルスオオカブト'], ['sai_kabuto', 'サイカブト'],
+    ['nokogiri_kuwagata', 'ノコギリクワガタ'], ['ookuwagata', 'オオクワガタ'], ['miyama_kuwagata', 'ミヤマクワガタ'], ['kokuwagata', 'コクワガタ'], ['hirata_kuwagata', 'ヒラタクワガタ'],
+    ['akaashi_kuwagata', 'アカアシクワガタ'], ['suji_kuwagata', 'スジクワガタ'], ['girafa_nokogiri', 'ギラファノコギリクワガタ'], ['nijiiro_kuwagata', 'ニジイロクワガタ'], ['tarandusu_ootsuya', 'タランドゥスオオツヤクワガタ'],
+    ['parawan_oohirata', 'パラワンオオヒラタクワガタ'], ['sumatora_oohirata', 'スマトラオオヒラタクワガタ'], ['ougon_oni_kuwagata', 'オウゴンオニクワガタ'], ['erafusu_hosoaka', 'エラフスホソアカクワガタ'], ['mengata_kuwagata', 'メンガタクワガタ'],
+    ['mandiburarisu_futamata', 'マンディブラリスフタマタクワガタ'], ['antaeusu_ookuwagata', 'アンタエウスオオクワガタ'], ['yooroppa_miyama', 'ヨーロッパミヤマクワガタ'], ['rakodaaru_tsuya', 'ラコダールツヤクワガタ'],
+    ['goraiasu_ootsunohanamuguri', 'ゴライアスオオツノハナムグリ'], ['tenaga_kogane', 'テナガコガネ'], ['kanabun', 'カナブン'], ['yamato_tamamushi', 'ヤマトタマムシ'], ['gengorou', 'ゲンゴロウ'],
+    ['genji_botaru', 'ゲンジボタル'], ['gomadara_kamikiri', 'ゴマダラカミキリ'], ['ruriboshi_kamikiri', 'ルリボシカミキリ'], ['oo_osamushi', 'オオオサムシ'], ['hanmyou', 'ハンミョウ'],
+    ['midori_senchikogane', 'ミドリセンチコガネ'], ['daikoku_kogane', 'ダイコクコガネ'], ['sukarabe', 'スカラベ'], ['oozoumushi', 'オオゾウムシ'], ['mizusumashi', 'ミズスマシ']
+  ];
+  KZ.ZUKAN_IMGS = ZUKAN_IMGS;
+  var ZIMG = {};
+  KZ.onImgReady = null;
+  function zimg(id) {
+    var im;
+    if (!ZIMG[id]) {
+      im = new global.Image();
+      im.onload = function () { if (KZ.onImgReady) { try { KZ.onImgReady(id); } catch (e) { /* 描き直しは 任意 */ } } };
+      im.src = 'img/zukan/' + id + '.png';
+      ZIMG[id] = im;
+    }
+    return ZIMG[id];
+  }
+  KZ.preloadZukan = function () { var i; for (i = 0; i < ZUKAN_IMGS.length; i++) { zimg(ZUKAN_IMGS[i][0]); } };
+  function drawZukanImg(ctx, id) {
+    var im = zimg(id);
+    if (im.complete && im.naturalWidth > 0) { ctx.drawImage(im, -50, -50, 100, 100); }
+    else { circle(ctx, 0, 0, 36, COL.kami, COL.sumi, 2.5); ctx.fillStyle = COL.sumi; ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', 0, 2); }
+  }
+  /* ZUKAN＝そだつ じゅんばん（PICS 6ぴき → 絵 44ひき＝50ぴきで 1しゅう） */
+  var ZUKAN = [], ZUKAN_BY_ID = {};
+  (function () {
+    var i, z;
+    for (i = 0; i < PICS.length; i++) { ZUKAN.push(PICS[i]); }
+    for (i = 0; i < ZUKAN_IMGS.length; i++) {
+      z = { id: ZUKAN_IMGS[i][0], name: ZUKAN_IMGS[i][1], img: true, draw: (function (id) { return function (ctx) { drawZukanImg(ctx, id); }; })(ZUKAN_IMGS[i][0]) };
+      ZUKAN.push(z); ZUKAN_BY_ID[z.id] = z;
+    }
+  })();
+  KZ.ZUKAN = ZUKAN;
+
   /* 過去問の かたち（2026年度の 回転図形 問題14-1・14-2＝2×2の ますに 4つの絵）。
      sym＝回して 見分けられる 向きの数（4＝90度ごとに ちがう／2＝180度で 同じ／1＝どう回しても 同じ）。
      asked=true（sym 4）の かたちは 問題14-1型で きく側の 絵に 使える。sym 1・2 は まわりの 絵にだけ 使う。 */
@@ -404,7 +449,7 @@
     for (i = 0; i < PICS.length; i++) { PIC_BY_ID[PICS[i].id] = PICS[i]; }
     for (i = 0; i < SHAPES.length; i++) { PIC_BY_ID[SHAPES[i].id] = SHAPES[i]; }
   })();
-  KZ.picById = function (id) { return PIC_BY_ID[id]; };
+  KZ.picById = function (id) { return PIC_BY_ID[id] || ZUKAN_BY_ID[id]; };
   /* きく側に 使える 絵（いきもの＋4回の回転が 全部ちがう かたち） */
   var ASKABLE = [];
   (function () {
@@ -900,12 +945,12 @@
     s.total += n;
     s.cLeaves += n;
     while (s.cLeaves >= GROW[3]) {
-      id = PICS[s.cIndex % PICS.length].id;
+      id = ZUKAN[s.cIndex % ZUKAN.length].id;
       s.zukan.push(id);
       events.push({ kind: 'adult', id: id });
       s.cLeaves -= GROW[3];
       s.cIndex += 1;
-      if (s.cIndex % PICS.length === 0) { s.lap += 1; events.push({ kind: 'lap', lap: s.lap }); }
+      if (s.cIndex % ZUKAN.length === 0) { s.lap += 1; events.push({ kind: 'lap', lap: s.lap }); }
       before = 0;
     }
     after = stageOf(s.cLeaves);
@@ -947,7 +992,7 @@
       line(ctx, 0, -34, 0, -44, COL.sumi, 3);
     } else {
       ctx.lineJoin = 'round';
-      PIC_BY_ID[picId].draw(ctx);
+      KZ.picById(picId).draw(ctx);
     }
     ctx.restore();
   }
@@ -1161,7 +1206,11 @@
     events = addLeaves(s, 1); ok(events.length === 1 && events[0].kind === 'stage' && events[0].stage === 1, 'T5 6まいで ようちゅう');
     events = addLeaves(s, 18); ok(s.zukan.length === 1 && s.zukan[0] === PICS[0].id && s.cLeaves === 0 && s.cIndex === 1, 'T5 24まいで ずかんへ');
     ok(events[0].kind === 'adult', 'T5 adult イベント');
-    events = addLeaves(s, 24 * 5 + 3); ok(s.zukan.length === 6 && s.lap === 1 && s.cLeaves === 3 && s.cIndex === 6, 'T5 6ひきで 1しゅう');
+    events = addLeaves(s, 24 * 5 + 3); ok(s.zukan.length === 6 && s.lap === 0 && s.cLeaves === 3 && s.cIndex === 6, 'T5 6ひきでは まだ 1しゅうに ならない');
+    events = addLeaves(s, 21); ok(s.zukan[6] === ZUKAN_IMGS[0][0] && ZUKAN[6].img === true && s.cLeaves === 0, 'T5 7ひき目は ずかんの 絵');
+    ok(KZ.picById(ZUKAN_IMGS[0][0]).name === ZUKAN_IMGS[0][1] && ALL_IDS.indexOf(ZUKAN_IMGS[0][0]) < 0 && ASKABLE.indexOf(ZUKAN_IMGS[0][0]) < 0, 'T5 ずかんの 絵は 問題に 出ない');
+    events = addLeaves(s, 24 * 43); ok(s.zukan.length === 50 && s.lap === 1 && s.cIndex === 50 && ZUKAN.length === 50, 'T5 50ぴきで 1しゅう');
+    for (i = 0; ctx && i < ZUKAN.length; i++) { try { drawStage(ctx, 60, 3, ZUKAN[i].id); ok(true, 'T5 ずかん 描く'); } catch (e3) { ok(false, 'T5 ずかん 描く ' + ZUKAN[i].id + ' ' + e3); } }
     ok(rankOf(0) === 'くるくる みならい' && rankOf(20) === 'くるくる なかま' && rankOf(250) === 'くるくる たつじん', 'T5 かんむり');
     ok(nextRankAt(0) === 20 && nextRankAt(200) === null, 'T5 つぎの かんむり');
     ok(questionText({ type: 'turn', dir: 'hidari', times: 2, wording: 'dir' }) === 'ひだりに 2かい まわすと どれ？', 'T5 もんだい文');
