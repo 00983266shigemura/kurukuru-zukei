@@ -57,6 +57,9 @@ def main():
     zids = re.findall(r"\['([a-z_]+)', '[^']+'\]", app.split('var ZUKAN_IMGS')[1].split('];')[0]) if 'var ZUKAN_IMGS' in app else []
     if sorted(i + '.png' for i in zids) != zfiles:
         sys.exit('✕ img/zukan/ の絵（%d枚）と app.js の ZUKAN_IMGS（%d）が合いません' % (len(zfiles), len(zids)))
+    # ずかん に絵があるなら、クリアせずに 大人が 全部見られる入口（おとなのひと の「ずかんの絵を全部見る」）が要る（しげ 2026-11-01）
+    if zids and ('grown-zukan-all' not in ui or 'grown-zukan-all' not in tpl):
+        sys.exit('✕ ずかん に絵があるのに、おとなのひと の「ずかんの絵を全部見る」（grown-zukan-all）が ui.js か template.html にありません')
     zpaths = ['img/zukan/' + f for f in zfiles]
     zsum = hashlib.md5(''.join(md5(os.path.join(ROOT, p)) for p in zpaths).encode('utf-8')).hexdigest()
     manifest = (
