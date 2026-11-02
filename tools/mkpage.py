@@ -52,6 +52,10 @@ window.__audioAsked = 0;
   try { window.webkitAudioContext = blocked; } catch (e) {}
   try { window.OfflineAudioContext = blocked; } catch (e) {}
   try { window.Audio = blocked; } catch (e) {}
+  /* audio 要素を 別の 道（createElement）で 作っても 再生の 入口で 塞ぐ（写し元＝こころの じゅんび tools/mkpage.py） */
+  try { window.HTMLMediaElement.prototype.play = blocked; } catch (e) {}
+  /* よみあげ（speechSynthesis）も 同じ入口で 塞ぐ＝こえも 音 */
+  try { Object.defineProperty(window, 'speechSynthesis', { value: { speak: blocked, cancel: function () {} }, configurable: true }); } catch (e) {}
 })();
 </script>
 """

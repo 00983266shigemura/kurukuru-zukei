@@ -10,7 +10,7 @@
 
   var KZ = {};
   /* このファイルを直したら この数字を +1 する。version.txt にも同じ数字を書く（build_app.py が照合する） */
-  KZ.APP_VERSION = 7;
+  KZ.APP_VERSION = 8;
   KZ.SCHEMA = 1;          /* 端末内保存の形。変えると古い記録は捨てて作り直す */
   KZ.STORE_KEY = 'kurukuru_zukei_v1';
 
@@ -849,12 +849,46 @@
       ['G6', 0.43, 0.08, 0.4, 'triangle'], ['C7', 0.5, 0.45, 0.5, 'triangle']]
   };
   KZ.SOUNDS = SOUNDS;
-  var snd = { ctx: null, on: true, vol: 0.22 };
+  var snd = { ctx: null, on: true, vol: 0.22, keep: null };
   KZ.snd = snd;
   function audioClass() { return global.AudioContext || global.webkitAudioContext || null; }
-  /* さいしょの タッチで よぶ（なんど よんでも よい） */
+  /* 音の ない 短い WAV（8000Hz・16bit・0.25びょう）。消音スイッチ対策の ために ながしつづける（写し元＝こころの じゅんび） */
+  function silentWav() {
+    var n = 2000, len = n * 2, h, i;
+    function u32(v) { return String.fromCharCode(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); }
+    function u16(v) { return String.fromCharCode(v & 255, (v >> 8) & 255); }
+    h = 'RIFF' + u32(36 + len) + 'WAVE' + 'fmt ' + u32(16) + u16(1) + u16(1) + u32(8000) + u32(16000) + u16(2) + u16(16) + 'data' + u32(len);
+    for (i = 0; i < len; i++) { h += String.fromCharCode(0); }
+    return 'data:audio/wav;base64,' + global.btoa(h);
+  }
+  KZ.silentWav = silentWav;
+  /* 鳴らす 直前に 毎回よぶ＝音の しくみが 止まって いれば（suspended・interrupted など）起こし直す。失敗しても 止まらない */
+  function wake(ctx) {
+    try {
+      if (ctx && ctx.state !== 'running' && ctx.resume) { ctx.resume(); return true; }
+    } catch (e) { /* 起こせなくても あそべる */ }
+    return false;
+  }
+  snd.wake = function () { return wake(snd.ctx); };
+  /* いまの 状態を 大人の画面に 出す ための 文（例＝おと: running・ループ: ながれている。ループ＝むおんの ループ） */
+  snd.status = function () {
+    var st = 'なし', lp = 'なし';
+    try { if (snd.ctx) { st = snd.ctx.state || 'ふめい'; } } catch (e) { st = 'ふめい'; }
+    try { if (snd.keep) { lp = snd.keep.paused ? 'とまっている' : 'ながれている'; } } catch (e2) { lp = 'ふめい'; }
+    return 'おと: ' + st + '・ループ: ' + lp;
+  };
+  /* さいしょの タッチで よぶ（なんど よんでも よい）。
+     iPad の 消音（よこの スイッチ・コントロールセンター）が 入って いると、合成の 音（Web Audio）だけ 消される。
+     音の ない audio を 1つ ながしつづけると、ページが「再生」あつかいに なり、合成の 音も 鳴る（推定・実機で 確かめる） */
   snd.unlock = function () {
-    var AC, b, src;
+    var AC, b, src, a;
+    try {
+      if (!snd.keep && global.Audio) {
+        a = new global.Audio(); a.src = silentWav(); a.loop = true;
+        snd.keep = a;
+      }
+      if (snd.keep && snd.on && snd.keep.paused) { snd.keep.play(); }
+    } catch (e0) { /* 鳴らなくても つかえる */ }
     try {
       if (!snd.ctx) {
         AC = audioClass(); if (!AC) { return false; }
@@ -881,6 +915,7 @@
   snd.sweep = function (sec) {
     var ctx = snd.ctx, o, g, t;
     if (!snd.on || !ctx) { return false; }
+    wake(ctx);
     try {
       t = ctx.currentTime + 0.01;
       o = ctx.createOscillator(); g = ctx.createGain();
@@ -899,6 +934,7 @@
   snd.play = function (name, delay) {
     var ctx = snd.ctx, seq = SOUNDS[name], t0, i, n;
     if (!snd.on || !ctx || !seq) { return false; }
+    wake(ctx);
     try {
       t0 = ctx.currentTime + 0.01 + (delay || 0);
       for (i = 0; i < seq.length; i++) {
@@ -1014,6 +1050,37 @@
     drawStage(ctx, css * 0.9, stage, picId);
   }
   KZ.paintStage = paintStage;
+
+  /* ================= 押した 手ごたえ（写し元＝おかえりクエスト .card.press） ================= */
+  /* ふれた 瞬間に 少し へこみ（0.92倍）、はなすと 行き過ぎて 戻る。対象は ボタンと えらぶ カード（.choice）。
+     document で まとめて 受けとる＝あとから 作る カードにも 効く。押した ときの 処理（click）には さわらない＝
+     いまの「2回 走らない」しくみ（G.done など）は そのまま */
+  function hasCls(n, c) { return !!(n && typeof n.className === 'string' && (' ' + n.className + ' ').indexOf(' ' + c + ' ') >= 0); }
+  function pressTarget(t) {
+    var n = 0;
+    while (t && n < 6) {
+      if (t.tagName === 'BUTTON' || hasCls(t, 'choice')) { return t; }
+      t = t.parentNode; n++;
+    }
+    return null;
+  }
+  function addPress(n) { if (n && !hasCls(n, 'press')) { n.className += ' press'; } }
+  function delPress(n) { if (n && hasCls(n, 'press')) { n.className = (' ' + n.className + ' ').replace(' press ', ' ').replace(/^\s+|\s+$/g, ''); } }
+  KZ.pressTarget = pressTarget;
+  KZ.pressFeel = function (doc) {
+    var cur = null;
+    function release() { if (cur) { delPress(cur); cur = null; } }
+    try {
+      doc.addEventListener('touchstart', function (ev) { release(); cur = pressTarget(ev.target); addPress(cur); }, false);
+      doc.addEventListener('touchmove', release, false);
+      doc.addEventListener('touchend', release, false);
+      doc.addEventListener('touchcancel', release, false);
+      doc.addEventListener('click', release, false);
+      /* ピンチの 拡大を 止める（iOS 10 は user-scalable=no を 無視する。写し元＝おかえりクエスト gesturestart） */
+      doc.addEventListener('gesturestart', function (ev) { ev.preventDefault(); }, false);
+      return true;
+    } catch (e) { return false; }
+  };
 
   /* ================= 自己点検（tools/test.html から 呼ぶ） ================= */
   KZ.selfTest = function (doc) {
@@ -1246,9 +1313,100 @@
       snd.ctx = keep;
     })();
 
+    /* K4 音の起こし直し＝止まった 音の しくみ（state='suspended' の 偽物・本物の 音は 出ない）で 鳴らすと resume が 呼ばれる */
+    (function () {
+      var keep = snd.ctx, keepOn = snd.on, f, r1, r2, r3, r4, f0 = 0;
+      function noop() {}
+      function param() { return { setValueAtTime: noop, linearRampToValueAtTime: noop, exponentialRampToValueAtTime: noop }; }
+      function fake(state, breakResume) {
+        var o = { state: state, currentTime: 0, destination: {}, resumed: 0 };
+        o.resume = function () { o.resumed++; if (breakResume) { throw new Error('resume broken'); } o.state = 'running'; };
+        o.createOscillator = function () { return { type: '', frequency: param(), connect: noop, start: noop, stop: noop }; };
+        o.createGain = function () { return { gain: param(), connect: noop }; };
+        return o;
+      }
+      snd.on = true;
+      f = fake('suspended'); snd.ctx = f; r1 = snd.play('tap');
+      ok(r1 === true && f.resumed === 1, 'K4 play で resume が よばれる resumed=' + f.resumed);
+      f0 = f.resumed;
+      f = fake('suspended'); snd.ctx = f; r2 = snd.sweep(0.3);
+      ok(r2 === true && f.resumed === 1, 'K4 sweep で resume が よばれる resumed=' + f.resumed);
+      f = fake('interrupted'); snd.ctx = f; snd.play('ok');
+      ok(f.resumed === 1, 'K4 interrupted でも resume');
+      f = fake('running'); snd.ctx = f; r3 = snd.play('ok');
+      ok(r3 === true && f.resumed === 0, 'K4 running の ときは resume しない');
+      f = fake('suspended', true); snd.ctx = f; r4 = snd.play('ok');
+      ok(r4 === true && f.resumed === 1, 'K4 resume が こわれても とまらず 鳴らす');
+      ok(typeof silentWav() === 'string' && silentWav().indexOf('data:audio/wav;base64,UklGR') === 0, 'K4 むおんの WAV が つくれる');
+      f = fake('running'); snd.ctx = f;
+      ok(snd.status().indexOf('おと: running') === 0, 'K4 状態の 文 ' + snd.status());
+      out.push('K4 おとの おこしなおし: suspended で play→resume=' + f0 + '・sweep→resume=1・running→0・resume故障でも鳴らす=' + r4 + '・状態の文「' + snd.status() + '」');
+      snd.ctx = keep; snd.on = keepOn;
+    })();
+
     KZ.seed(null);
+    KZ.selfTestKeys = fail === 0 ? ['K4'] : [];
     out.unshift('PASS=' + pass + ' FAIL=' + fail);
     return out;
+  };
+
+  /* 画面つきの 自己点検（tools/test.html が 無音の複製の 中で 呼ぶ）。K26 押した手ごたえ・K30 エラーの帯
+     戻り値＝{ pass, fail, lines, keys } */
+  KZ.selfTestUI = function (doc) {
+    var pass = 0, fail = 0, lines = [], keys = [], f26 = 0, f30 = 0;
+    function ok(cond, label, k) { if (cond) { pass++; } else { fail++; lines.push('FAIL ' + label); if (k === 26) { f26++; } else { f30++; } } }
+    function fire(node, type) { var ev = doc.createEvent('Event'); ev.initEvent(type, true, true); node.dispatchEvent(ev); }
+    var screens = ['scr-home', 'scr-play', 'scr-result', 'scr-zukan'], i, j, nodes, list = [], names = [], on = 0, off = 0, ch, band, b1, b2, fast;
+    /* 子どもの 画面の ボタン ぜんぶ＋えらぶ カード（問題を 1つ 出して 作る・たねを 固定＝毎回 同じ 数） */
+    KZ.seed(4);
+    doc.getElementById('lv-1').click();
+    KZ.seed(null);
+    for (i = 0; i < screens.length; i++) {
+      nodes = doc.getElementById(screens[i]).getElementsByTagName('button');
+      for (j = 0; j < nodes.length; j++) { list.push(nodes[j]); names.push(nodes[j].id || 'button'); }
+    }
+    ch = doc.getElementById('choices').getElementsByClassName('choice');
+    for (j = 0; j < ch.length; j++) { list.push(ch[j]); names.push('choice' + j); }
+    doc.getElementById('play-back').click();
+    for (i = 0; i < list.length; i++) {
+      /* 中の 文字（span など）に ふれても ボタンが へこむ */
+      fire(list[i].firstElementChild || list[i], 'touchstart');
+      if (hasCls(list[i], 'press')) { on++; } else { ok(false, 'K26 touchstart で press が つかない ' + names[i], 26); }
+      fire(list[i], 'touchend');
+      if (!hasCls(list[i], 'press')) { off++; } else { ok(false, 'K26 touchend で press が はずれない ' + names[i], 26); }
+    }
+    pass += (on + off);
+    /* touchcancel と click でも はずれる・おとなのひと の ながおしは 動いたまま */
+    fire(list[0], 'touchstart'); fire(list[0], 'touchcancel'); ok(!hasCls(list[0], 'press'), 'K26 touchcancel で はずれる', 26);
+    /* click は ボタンでない 所（はじめの がめんの 地）へ 送る＝ボタンの 処理を 走らせずに、はずれる ことだけ 見る */
+    fire(list[0], 'touchstart'); fire(doc.getElementById('scr-home'), 'click'); ok(!hasCls(list[0], 'press'), 'K26 click で はずれる', 26);
+    /* へこむ 速さ（CSS が 効いているか＝0.1びょう より 速く 見た目が 変わる） */
+    fire(list[0], 'touchstart');
+    fast = global.getComputedStyle ? global.getComputedStyle(list[0]) : null;
+    b2 = fast ? (fast.transitionDuration || fast.webkitTransitionDuration || '') : '';
+    b1 = fast ? String(fast.transitionProperty || fast.webkitTransitionProperty || '') : '';
+    fire(list[0], 'touchend');
+    ok(b2 === '0.05s' && b1.indexOf('transform') >= 0, 'K26 へこむ 速さ ' + b2 + ' ' + b1, 26);
+    ok(list.length >= 17 && on === list.length && off === list.length, 'K26 ぜんぶ ' + list.length + '個', 26);
+    lines.push('K26 おした てごたえ: 対象=' + list.length + '個 press付く=' + on + ' 外れる=' + off + ' へこむ速さ=' + b2 + '（' + b1 + '）');
+    lines.push('K26 対象の一覧: ' + names.join(','));
+    if (f26 === 0) { keys.push('K26'); }
+
+    /* K30 エラーの帯＝わざと window.onerror を 呼ぶと 帯が 出て、文が 入る */
+    band = doc.getElementById('err-band');
+    ok(!band || band.style.display !== 'block', 'K30 ふだんは 帯が 出ていない', 30);
+    ok(typeof global.onerror === 'function', 'K30 window.onerror が ある', 30);
+    if (typeof global.onerror === 'function') { global.onerror('KZ selftest error', 'file:///x/index.html', 123, 45); }
+    band = doc.getElementById('err-band');
+    b1 = band ? band.firstChild.textContent : '';
+    b2 = band ? band.lastChild.textContent : '';
+    ok(band && band.style.display === 'block', 'K30 帯が 出る', 30);
+    ok(b1 === 'ごめんね。うまく うごかなかったよ', 'K30 1行目 ' + b1, 30);
+    ok(b2.indexOf('KZ selftest error') === 0 && b2.indexOf('index.html:123:45') > 0, 'K30 2行目に 生の エラー ' + b2, 30);
+    lines.push('K30 エラーの帯: 表示=' + (band && band.style.display === 'block' ? 'あり' : 'なし') + ' 1行目「' + b1 + '」 2行目「' + b2 + '」');
+    if (band) { band.style.display = 'none'; }
+    if (f30 === 0) { keys.push('K30'); }
+    return { pass: pass, fail: fail, lines: lines, keys: keys };
   };
 
   global.KZ = KZ;

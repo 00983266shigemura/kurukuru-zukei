@@ -17,6 +17,8 @@
   (function () {
     function blocked() { window.__audioAsked++; throw new Error('自己点検では音を出せません'); }
     window.AudioContext = blocked; window.webkitAudioContext = blocked; window.OfflineAudioContext = blocked; window.Audio = blocked;
+    try { window.HTMLMediaElement.prototype.play = blocked; } catch (e) {}
+    try { Object.defineProperty(window, 'speechSynthesis', { value: { speak: blocked, cancel: function () {} }, configurable: true }); } catch (e) {}
   })();
   window.__loadErrors = [];
   window.onerror = function (msg, src, line, col) { window.__loadErrors.push('ERR ' + msg + ' @' + src + ':' + line + ':' + col); };
@@ -27,15 +29,35 @@
 <script src="../src/app.js" onerror="window.__loadErrors.push('ERR script load failed')"></script>
 <script>
 (function () {
-  var out = document.getElementById('out'), lines;
+  var out = document.getElementById('out'), lines, head, pass, fail, keys, f, finished = false;
+  function failAll(e) {
+    out.textContent = 'FAIL=exception ' + (e && e.message ? e.message : e) + '\n' + window.__loadErrors.join('\n') + '\n' + (e && e.stack ? e.stack : '');
+    document.title = 'DONE';
+  }
   try {
     if (!window.KZ) { throw new Error('KZ が無い＝app.js が最後まで実行されていない'); }
     lines = window.KZ.selfTest(document);
-    out.textContent = lines.concat(window.__loadErrors).join('\n');
-  } catch (e) {
-    out.textContent = 'FAIL=exception ' + (e && e.message ? e.message : e) + '\n' + window.__loadErrors.join('\n') + '\n' + (e && e.stack ? e.stack : '');
-  }
-  document.title = 'DONE';
+    head = lines.shift().match(/^PASS=(\d+) FAIL=(\d+)$/);
+    pass = +head[1]; fail = +head[2]; keys = (window.KZ.selfTestKeys || []).slice();
+  } catch (e) { failAll(e); return; }
+  /* 画面つきの 項目（K26・K30）は 無音の複製（tools/mkpage.py が作る logs/silent_index.html）の 中で 回す */
+  f = document.createElement('iframe');
+  f.style.cssText = 'width:1024px;height:640px;border:0;display:block';
+  f.onload = function () {
+    var r;
+    if (finished) { return; }
+    finished = true;
+    try {
+      if (!f.contentWindow.KZ || !f.contentWindow.KZ.selfTestUI) { throw new Error('無音の複製に KZ.selfTestUI が無い（先に tools/mkpage.py）'); }
+      r = f.contentWindow.KZ.selfTestUI(f.contentWindow.document);
+      pass += r.pass; fail += r.fail; lines = lines.concat(r.lines); keys = keys.concat(r.keys);
+      out.textContent = ['PASS=' + pass + ' FAIL=' + fail].concat(lines, ['KEYS=' + keys.join(',')], window.__loadErrors).join('\n');
+    } catch (e) { failAll(e); return; }
+    document.title = 'DONE';
+  };
+  setTimeout(function () { if (!finished) { finished = true; failAll(new Error('無音の複製が 読み込めない')); } }, 15000);
+  f.src = '../logs/silent_index.html';
+  document.body.appendChild(f);
 })();
 </script>
 </body>

@@ -22,7 +22,8 @@ print "== 3/7 字の在庫（絵文字なし）と 子どもの画面の漢字 =
 /usr/bin/python3 "$ROOT/tools/check_kana.py" || touch "$FAILFILE"
 print "== 4/7 ホーム画面の絵 =="
 /usr/bin/python3 "$ROOT/tools/make_icon.py" --check || touch "$FAILFILE"
-print "== 5/7 自己点検（ブラウザで実行） =="
+print "== 5/7 自己点検（ブラウザで実行・画面つきの 項目 K26・K30 は 無音の複製の 中で） =="
+/usr/bin/python3 "$ROOT/tools/mkpage.py" || touch "$FAILFILE"
 TMP="$ROOT/logs/selftest_dom.html"
 "$CHROME" --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files --virtual-time-budget=20000 \
   --dump-dom "file://$ROOT/tools/test.html" > "$TMP" 2>/dev/null

@@ -407,6 +407,7 @@
       S.perRound = parseInt(el('grown-per').value, 10) === 10 ? 10 : 5;
       S.sound = el('grown-snd').value !== 'off';
       KZ.snd.on = S.sound;
+      if (!S.sound && KZ.snd.keep) { try { KZ.snd.keep.pause(); } catch (ep) { /* つぎの タッチで もどる */ } }
       KZ.saveState(S); renderHome(); show('home');
     });
     on('reset-1', function () { el('reset-2').style.display = 'inline-block'; });
@@ -419,6 +420,22 @@
       if (screen === 'play' && G) { paintChoices(); KZ.paintCanvas(el('q-before'), G.qs[G.idx].type === 'count' ? G.qs[G.idx].before : { base: G.qs[G.idx].base, mirror: 0, rot: 0 }, 0); if (G.qs[G.idx].type === 'count') { KZ.paintCanvas(el('q-after'), G.qs[G.idx].after, 0); } }
       if (screen === 'home') { renderHome(); }
     }, false);
+    /* おとのためし（おとなのひと）＝みじかい 音を 鳴らし、そのときの 状態を 画面に 出す（写し元＝こころの じゅんび grown-snd-test）。
+       resume は あとから 効くので、少し 待って もう一度 状態を 書く */
+    on('grown-snd-test', function () {
+      var was = KZ.snd.on, r;
+      KZ.snd.on = true; KZ.snd.unlock();
+      r = KZ.snd.play('ok');
+      KZ.snd.on = was;
+      setText(el('grown-snd-res'), (r ? 'ならしました' : 'おとが つくれません') + '（' + KZ.snd.status() + '）');
+      global.setTimeout(function () {
+        setText(el('grown-snd-res'), (r ? 'ならしました' : 'おとが つくれません') + '（' + KZ.snd.status() + '）');
+      }, 600);
+    });
+    /* 画面が かくれたら むおんの ループを 止める（つぎの タッチで また ながす） */
+    doc.addEventListener('visibilitychange', function () { if (doc.hidden && KZ.snd.keep) { try { KZ.snd.keep.pause(); } catch (ev) { /* つぎの タッチで もどる */ } } }, false);
+    /* 押した 手ごたえ（へこんで 戻る）と ピンチの 拡大止め */
+    KZ.pressFeel(doc);
     /* おと＝さいしょの タッチで おこす。ボタンを おしたら「ぽっ」 */
     KZ.snd.on = (S.sound !== false);
     doc.addEventListener('touchend', function () { KZ.snd.unlock(); }, false);

@@ -81,11 +81,29 @@ document.getElementById('f').onload = function () {
     var ev = d.createEvent('MouseEvents'); ev.initEvent('mousedown', true, true); el('grown-btn').dispatchEvent(ev);
     w.setTimeout(function () {
       meas('grown');
+      /* 音のためし を 押した あと（けっかの 文が 出た 姿）も 1画面に おさまるか */
+      el('grown-snd-test').click();
+      if (el('grown-snd-res').textContent.indexOf('おと: ') < 0) { fails.push('grownsnd 状態の文が 出ない'); }
+      meas('grownsnd');
+      put('SNDTEST ' + el('grown-snd-res').textContent);
+      /* 実機で 出うる いちばん 長い 文でも 1行に 入りきるか（はみ出して 切れない） */
+      var sr = el('grown-snd-res'), keepTx = sr.textContent;
+      sr.textContent = 'ならしました（おと: interrupted・ループ: とまっている）';
+      if (sr.scrollWidth > sr.clientWidth) { fails.push('grownsnd いちばん長い文が 切れる ' + sr.scrollWidth + '>' + sr.clientWidth); }
+      put('SNDTEST いちばん長い文 はば=' + sr.scrollWidth + ' わく=' + sr.clientWidth);
+      sr.textContent = keepTx;
       put('MEASURED=' + n + ' MAXH=' + maxH + ' at ' + maxTag);
       put('ERRS=' + errs.length + (errs.length ? ' ' + errs.join(' | ') : ''));
       /* 無音の確かめ＝音の入口を作ろうとした回数が 0より大きく、音の しくみは作られていない（0回は素通り＝証拠にならない） */
-      var asked = w.__audioAsked, silent = (typeof asked === 'number' && asked > 0 && w.KZ.snd.ctx === null);
-      put('AUDIO asked=' + asked + ' ctx=' + (w.KZ.snd.ctx === null ? 'なし' : 'あり') + ' → ' + (silent ? '無音' : '無音でない'));
+      var asked = w.__audioAsked, silent = (typeof asked === 'number' && asked > 0 && w.KZ.snd.ctx === null && !w.KZ.snd.keep);
+      /* 新しい 音の入口（audio 要素の play・よみあげ）も 塞がっているか＝呼ぶと 入口の 回数が ふえる */
+      var a0 = w.__audioAsked, mediaBlocked = false, speechBlocked = false;
+      try { d.createElement('audio').play(); } catch (em) { /* 塞がれていれば ここ */ }
+      mediaBlocked = w.__audioAsked > a0; a0 = w.__audioAsked;
+      try { w.speechSynthesis.speak({}); } catch (es) { /* 塞がれていれば ここ */ }
+      speechBlocked = w.__audioAsked > a0;
+      silent = silent && mediaBlocked && speechBlocked;
+      put('AUDIO asked=' + asked + ' ctx=' + (w.KZ.snd.ctx === null ? 'なし' : 'あり') + ' ループ=' + (w.KZ.snd.keep ? 'あり' : 'なし') + ' audio要素=' + (mediaBlocked ? '塞いだ' : '塞いでいない') + ' よみあげ=' + (speechBlocked ? '塞いだ' : '塞いでいない') + ' → ' + (silent ? '無音' : '無音でない'));
       put(fails.length === 0 && errs.length === 0 && silent ? 'FIT=PASS' : 'FIT=FAIL ' + (silent ? '' : '無音化が効いていない ') + fails.slice(0, 12).join(' / '));
     }, 1500);
   } catch (e) {

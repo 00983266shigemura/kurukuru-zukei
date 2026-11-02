@@ -49,6 +49,20 @@
     border:0; border-radius:12px; padding:12px 20px; color:var(--on-accent); background:var(--ao);
     cursor:pointer; min-height:58px;
   }
+  /* 押した 手ごたえ＝ふれると へこみ（0.92倍）、はなすと 行き過ぎて 戻る（写し元＝おかえりクエスト .card.press）。
+     touch-action＝ダブルタップの 拡大を 止める（iOS 10 は user-scalable=no を 無視する） */
+  button,.choice{
+    -webkit-transition:-webkit-transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    transition:transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    touch-action:manipulation;
+  }
+  button.press,.choice.press{
+    -webkit-transform:scale(0.92); transform:scale(0.92);
+    -webkit-transition-duration:0.05s; transition-duration:0.05s;
+  }
+  /* エラーの帯（ふだんは 出ない・画面の 下に かさねる＝1画面の 高さに 入らない） */
+  #err-band{display:none; position:fixed; left:0; right:0; bottom:0; z-index:99; background:var(--daidai-bg); color:var(--ink); border-top:3px solid var(--daidai); padding:8px 14px; font-size:0.83rem; font-weight:bold;}
+  #err-band .err-2{font-size:0.5rem; font-weight:normal; color:var(--ink-soft); word-break:break-all;}
   button.sub{background:var(--nashi);}
   button.small{font-size:0.67rem; min-height:0; padding:8px 14px;}
   .head{overflow:hidden; padding-bottom:4px;}
@@ -131,6 +145,10 @@
   .grown input,.grown select{font-size:0.83rem; padding:8px; border:1px solid var(--line); border-radius:8px; width:100%; color:var(--ink); background:var(--card);}
   .grown label{display:block; margin-top:10px;}
   #reset-2{background:var(--murasaki); color:var(--on-murasaki);}
+  /* おと の えらびと「音のためし」を 1行に（1画面に おさめる）。けっかは 注記の 先頭に 出す */
+  .grown .snd-row label{display:inline-block; width:58%;}
+  .grown .snd-row select{width:auto; min-width:7em; margin-left:6px;}
+  #grown-snd-res{display:block; color:var(--ink); font-weight:bold; font-size:0.58rem; white-space:nowrap; overflow:hidden;}
 
   /* iPad よこおき＝1がめんに おさめる（たて 640px 以内＝Safari の 上の バーが あっても はみださない）。
      ひだり＝もんだい・ことば・ボタン／みぎ＝えらぶ 4まい。たておき は これまでどおり */
@@ -161,6 +179,27 @@
     .zcard{width:47%;}
   }
 </style>
+<script>
+/* エラーの帯（K30）＝思わぬ エラーで 白い 画面に しない。1行目は かなの おわび、2行目に 小さく 生の エラー（実機の エラーを 見る ただ1つの 道）。
+   本体の script より 先に 置く＝本体が 書き方の エラーで 読めない ときも 帯が 出る。帯に ふれると 消える */
+window.onerror = function (msg, src, line, col) {
+  try {
+    var d = document, band = d.getElementById('err-band'), file;
+    if (!band) {
+      if (!d.body) { return false; }
+      band = d.createElement('div'); band.id = 'err-band';
+      band.innerHTML = '<div class="err-1"></div><div class="err-2"></div>';
+      band.onclick = function () { band.style.display = 'none'; };
+      d.body.appendChild(band);
+    }
+    file = String(src || '').split('/').pop();
+    band.firstChild.textContent = 'ごめんね。うまく うごかなかったよ';
+    band.lastChild.textContent = String(msg) + ' @' + file + ':' + line + (col ? ':' + col : '');
+    band.style.display = 'block';
+  } catch (e) { /* 帯が 出せなくても 止まらない */ }
+  return false;
+};
+</script>
 </head>
 <body>
 
@@ -247,10 +286,10 @@
     <label>1まわりの もんだいの かず
       <select id="grown-per"><option value="5">5もん</option><option value="10">10もん</option></select>
     </label>
-    <label>おと
+    <div class="snd-row"><label>おと
       <select id="grown-snd"><option value="on">あり</option><option value="off">なし</option></select>
-    </label>
-    <p class="note">おとが 出ないときは、iPad の 音量と 消音（ミュート）を 確かめてください。</p>
+    </label> <button id="grown-snd-test" class="small">音のためし</button></div>
+    <p class="note"><span id="grown-snd-res"></span>おとが 出ないときは、iPad の 音量と 消音（ミュート）を 確かめてください。</p>
     <p><button id="grown-save" class="small">ほぞんして もどる</button> <button id="grown-zukan-all" class="sub small">ずかんの絵を全部見る（親用）</button></p>
     <table id="grown-table"></table>
   </div><div class="grown-r">
